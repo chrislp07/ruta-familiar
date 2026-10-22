@@ -36,7 +36,7 @@ function limpiarNombre(dir) {
     .replace(/^./, (c) => c.toUpperCase());
 }
 
-async function calcular(t, params) {
+async function tramo(t, params) {
   const resumen = await consulta(t.ruta, params);
   const detalle = await consulta(t.detalle, params).catch(() => []);
   const r = Array.isArray(resumen) ? resumen[0] || {} : resumen || {};
@@ -66,6 +66,24 @@ async function calcular(t, params) {
   };
 }
 
+// Calcula una ruta directa, o en dos tramos si hay un punto intermedio (origen → parada → destino)
+async function calcular(t, o, d, v, parada) {
+  if (!parada) return tramo(t, { dest_i: o, dest_f: d, v });
+  const a = await tramo(t, { dest_i: o, dest_f: parada.id, v });
+  const b = await tramo(t, { dest_i: parada.id, dest_f: d, v });
+  if (!a.km || !b.km) return { ...a, km: 0 };
+  return {
+    tipo: t.tipo + '-via',
+    nombre: `${t.nombre} pasando por ${parada.nombre}`,
+    km: a.km + b.km,
+    minutos: a.minutos + b.minutos,
+    casetas: [...a.casetas, ...b.casetas],
+    totalCasetas: a.totalCasetas + b.totalCasetas,
+    advertencia: [a.advertencia, b.advertencia].filter(Boolean).join(' '),
+    trazo: { type: 'GeometryCollection', geometries: [a.trazo, b.trazo].filter(Boolean) },
+  };
+}
+
 module.exports = async (req, res) => {
   const q = req.query || {};
   const o = String(q.o || '').trim();
@@ -75,13 +93,18 @@ module.exports = async (req, res) => {
   if (!/^\d+$/.test(o) || !/^\d+$/.test(d)) {
     return res.status(400).json({ error: 'Elige el origen y el destino de la lista.' });
   }
-  const params = { dest_i: o, dest_f: d, v };
+  const p = String(q.p || '').trim();
+  const parada = /^\d+$/.test(p) ? { id: p, nombre: String(q.pn || 'la parada').slice(0, 60) } : null;
+  // Con parada: rutas directas (cuota y libre) y las mismas pasando por la parada.
+  const plan = parada
+    ? [[TIPOS[0], null], [TIPOS[1], null], [TIPOS[0], parada], [TIPOS[1], parada]]
+    : TIPOS.map((t) => [t, null]);
   const rutas = [];
   const errores = [];
   const vistas = new Set();
-  for (const t of TIPOS) {
+  for (const [t, via] of plan) {
     try {
-      const r = await calcular(t, params);
+      const r = await calcular(t, o, d, v, via);
       if (!r.km) { errores.push({ tipo: t.tipo, error: 'sin distancia' }); continue; }
       // La ruta sugerida suele coincidir con otra: se muestra una sola vez
       const firma = `${Math.round(r.km)}-${Math.round(r.totalCasetas)}`;
