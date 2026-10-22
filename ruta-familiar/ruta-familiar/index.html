@@ -126,6 +126,11 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
             <span class="picked" id="toPicked"></span>
             <div class="sugg" id="toSugg" hidden></div>
           </label>
+          <label class="f" for="via">Pasar por (opcional)
+            <input id="via" autocomplete="off" placeholder="Ej. Macuspana">
+            <span class="picked" id="viaPicked"></span>
+            <div class="sugg" id="viaSugg" hidden></div>
+          </label>
           <label class="f" for="pax">Personas<input id="pax" type="number" min="1" value="4" inputmode="numeric"></label>
           <label class="f" for="families">Familias que pagan<input id="families" type="number" min="1" value="1" inputmode="numeric"></label>
         </div>
@@ -152,6 +157,13 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
           <label class="f" for="fprice">Precio por litro ($)<input id="fprice" type="number" min="0" step="0.01" inputmode="decimal"></label>
           <label class="f" for="vclass">Paga casetas como<select id="vclass"><option value="1">Automóvil</option><option value="0">Motocicleta</option></select></label>
         </div>
+        <div class="fields">
+          <label class="f" for="speed">Velocidad habitual en autopista<select id="speed">
+            <option value="90">90 km/h</option><option value="100">100 km/h</option><option value="110" selected>110 km/h</option>
+            <option value="120">120 km/h</option><option value="130">130 km/h</option><option value="140">140 km/h</option><option value="150">150 km/h</option>
+          </select></label>
+        </div>
+        <p class="hint" id="speedNote"></p>
         <label class="check" for="buffer"><input id="buffer" type="checkbox" checked> Sumar 10% por aire acondicionado, subidas y auto lleno</label>
       </section>
 
@@ -179,6 +191,7 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
           <label class="f" for="hotel">Hotel ($)<input id="hotel" type="number" min="0" value="0" inputmode="numeric"></label>
           <label class="f" for="other">Otros ($)<input id="other" type="number" min="0" value="0" inputmode="numeric"></label>
         </div>
+        <div id="extraBox"></div>
       </section>
       <p class="foot">Rutas, distancias y casetas: API de Ruteo del INEGI, Red Nacional de Caminos. El INEGI actualiza las tarifas una vez al año, por lo que pueden diferir de las vigentes. Rendimientos: Catálogo de Rendimiento de Combustible 2026 del Gobierno de México. Verifica antes de salir.</p>
     </main>
@@ -247,7 +260,7 @@ function setupPlace(key){
   });
   inp.addEventListener('blur',()=>setTimeout(()=>box.hidden=true,200));
 }
-setupPlace('from');setupPlace('to');
+setupPlace('from');setupPlace('to');setupPlace('via');
 function updateSign(){$('signRoute').textContent=`${S.from?S.from.nombre:'Origen'} → ${S.to?S.to.nombre:'Destino'}`}
 
 // ---------- Vehículo ----------
@@ -291,6 +304,24 @@ $('fprice').addEventListener('input',()=>{S.prices[$('fuel').value]=n($('fprice'
 fetch('/vehiculos.json').then(r=>r.json()).then(d=>{CAT=Array.isArray(d)?d:[];fillMarcas();if(!CAT.length){$('marca').value='__otro';$('marca').dispatchEvent(new Event('change'))}}).catch(()=>{fillMarcas();$('marca').value='__otro';$('marca').dispatchEvent(new Event('change'))});
 
 
+// ---------- Velocidad ----------
+// El rendimiento oficial en carretera se mide en un ciclo de laboratorio con velocidades de hasta ~97 km/h.
+// Arriba de eso el consumo sube por la resistencia del aire. Puntos de referencia: estudio de Oak Ridge
+// National Laboratory (74 vehículos): ~14% menos a 113 km/h y ~27% menos a 129 km/h que a 97 km/h.
+// Más allá de 129 km/h se extiende la misma tendencia (estimación).
+function speedFactor(v){
+  const pts=[[97,1],[113,.86],[129,.73]];
+  if(v<=97)return 1;
+  for(let k=1;k<pts.length;k++){const[a,fa]=pts[k-1],[b,fb]=pts[k];if(v<=b)return fa+(fb-fa)*(v-a)/(b-a)}
+  return Math.max(.5,.73-(v-129)*.0081);
+}
+function speedNote(){
+  const v=n($('speed').value),f=speedFactor(v),base=S.kml||0,eff=base*f;
+  $('speedNote').textContent=f>=1?`A ${v} km/h el rendimiento es prácticamente el oficial: ${base.toFixed(1)} km/L.`:
+    `A ${v} km/h el rendimiento baja aprox. ${Math.round((1-f)*100)}%: de ${base.toFixed(1)} a ${eff.toFixed(1)} km/L. Es una estimación; manejar a 100–110 km/h ahorra gasolina.`;
+}
+$('speed').addEventListener('change',()=>{speedNote();recalc()});
+
 // ---------- Mapa ----------
 let MAP=null,LAYERS=[],TOLLS=null;
 const ROUTE_COLORS=['#0b6b3a','#1f4e9b','#8a4fbf'];
@@ -332,9 +363,10 @@ function styleRoutes(){
 $('calc').addEventListener('click',async()=>{
   const msg=$('routeMsg');
   if(!S.from||!S.to){msg.className='msg err';msg.textContent='Elige el origen y el destino de la lista de sugerencias.';msg.hidden=false;return}
-  $('calc').disabled=true;$('calc').textContent='Calculando…';msg.className='msg';msg.textContent='Consultando rutas y casetas en el INEGI…';msg.hidden=false;
+  $('calc').disabled=true;$('calc').textContent='Calculando…';msg.className='msg';msg.textContent=S.via&&$('via').value.trim()?'Consultando rutas y casetas en el INEGI, incluida la que pasa por '+S.via.nombre+'…':'Consultando rutas y casetas en el INEGI…';msg.hidden=false;
   try{
-    const r=await fetch(`/api/ruta?o=${S.from.id}&d=${S.to.id}&v=${$('vclass').value}`);
+    const via=S.via&&$('via').value.trim()?`&p=${S.via.id}&pn=${encodeURIComponent(S.via.nombre)}`:'';
+    const r=await fetch(`/api/ruta?o=${S.from.id}&d=${S.to.id}&v=${$('vclass').value}${via}`);
     const j=await r.json();if(!r.ok)throw new Error(j.error);
     S.routes=j.rutas;S.sel=0;msg.hidden=true;drawMap();recalc();
   }catch(e){msg.className='msg err';msg.textContent=e.message||'No se pudo calcular la ruta. Intenta de nuevo.'}
@@ -344,7 +376,7 @@ $('cards').addEventListener('click',e=>{const b=e.target.closest('[data-pick]');
 document.querySelectorAll('#pax,#families,#round,#buffer,#meal,#meals,#snacks,#hotel,#other').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',recalc));
 
 function calc(r){
-  const mult=$('round').checked?2:1,pax=Math.max(1,n($('pax').value)),kml=Math.max(1,S.kml||1);
+  const mult=$('round').checked?2:1,pax=Math.max(1,n($('pax').value)),kml=Math.max(1,(S.kml||1)*speedFactor(n($('speed').value)));
   const liters=r.km/kml*($('buffer').checked?1.1:1)*mult;
   const fuel=liters*n($('fprice').value);
   const tolls=r.totalCasetas*mult;
@@ -356,6 +388,7 @@ function calc(r){
 const hm=h=>`${Math.floor(h)} h ${String(Math.round((h%1)*60)).padStart(2,'0')} min`;
 let summaryText='';
 function recalc(){
+  speedNote();
   if(!S.routes.length)return;
   const cs=S.routes.map(calc);
   const cheap=S.routes.length>1?cs.reduce((a,c,i)=>c.total<cs[a].total?i:a,0):-1;
@@ -368,11 +401,19 @@ function recalc(){
   $('detail').innerHTML=r.casetas.length?`<h3 style="font-size:1rem;margin-bottom:6px">Casetas de “${esc(r.nombre)}” (solo ida)</h3><table class="tl num">${r.casetas.map(k=>`<tr><td>${esc(k.nombre)}</td><td>${money.format(k.costo)}</td></tr>`).join('')}<tr><td><b>Total por trayecto</b></td><td>${money.format(r.totalCasetas)}</td></tr>${c.mult>1?`<tr><td><b>Ida y vuelta</b></td><td>${money.format(c.tolls)}</td></tr>`:''}</table>`:'<p class="hint">Esta ruta no tiene casetas.</p>';
   const fuelName=FUELS[$('fuel').value][0];
   $('fuelSec').hidden=false;
+  const pxN=Math.max(1,n($('pax').value)),mlN=n($('meals').value),mpp=n($('meal').value);
+  $('extraBox').innerHTML=`<table class="tl num">
+    <tr><td>Comidas<br><span class="hint">${money.format(mpp)} × ${pxN} persona${pxN===1?'':'s'} × ${mlN} comida${mlN===1?'':'s'}</span></td><td>${money.format(c.meals)}</td></tr>
+    <tr><td>Botanas y bebidas</td><td>${money.format(n($('snacks').value))}</td></tr>
+    <tr><td>Hotel</td><td>${money.format(n($('hotel').value))}</td></tr>
+    <tr><td>Otros</td><td>${money.format(n($('other').value))}</td></tr>
+    <tr><td><b>Total de gastos extra</b></td><td>${money.format(c.extras)}</td></tr></table>`;
   const vname=S.veh?`${S.veh.marca} ${S.veh.modelo}, ${S.veh.version}`:'Vehículo genérico';
   $('fuelBox').innerHTML=`<table class="tl num">
     <tr><td>Ruta</td><td>${esc(r.nombre)}</td></tr>
     <tr><td>Distancia${c.mult>1?' (ida y vuelta)':''}</td><td>${Math.round(r.km*c.mult)} km</td></tr>
-    <tr><td>Rendimiento usado<br><span class="hint">${esc(vname)}</span></td><td>${(S.kml||0).toFixed(1)} km/L</td></tr>
+    <tr><td>Rendimiento oficial en carretera<br><span class="hint">${esc(vname)}</span></td><td>${(S.kml||0).toFixed(1)} km/L</td></tr>
+    ${speedFactor(n($('speed').value))<1?`<tr><td>Ajuste por velocidad (${n($('speed').value)} km/h)</td><td>−${Math.round((1-speedFactor(n($('speed').value)))*100)}% → ${((S.kml||0)*speedFactor(n($('speed').value))).toFixed(1)} km/L</td></tr>`:''}
     ${$('buffer').checked?'<tr><td>Margen por aire acondicionado, subidas y auto lleno</td><td>+10%</td></tr>':''}
     <tr><td>Litros necesarios</td><td>${c.liters.toFixed(1)} L de ${fuelName}</td></tr>
     <tr><td>Precio por litro</td><td>$${n($('fprice').value).toFixed(2)}</td></tr>
