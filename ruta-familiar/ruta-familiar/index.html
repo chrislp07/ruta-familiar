@@ -46,7 +46,7 @@ h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
 .step-h h2{font-size:1.25rem;font-weight:800}
 .hint{color:var(--muted);font-size:.9rem;margin:0}
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-label.f{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted);font-weight:700;min-width:0;position:relative}
+label.f,.f{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted);font-weight:700;min-width:0;position:relative}
 input,select{font:inherit;font-size:1rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;width:100%;min-width:0}
 input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .check{display:flex;align-items:center;gap:10px;font-weight:700;font-size:.95rem;min-height:44px}
@@ -55,6 +55,10 @@ button,.btn{font:inherit;font-weight:700;cursor:pointer;border-radius:8px;min-he
 button:disabled{opacity:.6;cursor:wait}
 .btn-main{background:var(--sign);color:var(--sign-ink);border-color:var(--sign)}
 .row{display:flex;flex-wrap:wrap;gap:8px}
+.pair{display:flex;flex-direction:column;gap:6px}
+.txt{position:relative}
+.linkbtn{background:none;border:0;padding:2px 0;min-height:0;color:var(--blue);font-weight:700;font-size:.85rem;justify-content:flex-start;text-decoration:underline;cursor:pointer}
+.place{grid-column:span 1}
 .sugg{position:absolute;top:100%;left:0;right:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-top:4px;max-height:260px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.15);font-weight:400;color:var(--ink)}
 .sugg button{display:flex;width:100%;justify-content:space-between;border:0;border-radius:0;border-bottom:1px solid var(--line);text-align:left;font-weight:400}
 .sugg button span{color:var(--muted);font-size:.85rem}
@@ -116,21 +120,42 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
       <section class="step">
         <div class="step-h"><span class="step-n">1</span><h2>El viaje</h2></div>
         <div class="fields">
-          <label class="f" for="from">Salimos de
-            <input id="from" autocomplete="off" placeholder="Ej. Villahermosa">
+          <div class="f place">Salimos de
+            <div class="pair">
+              <select id="fromEdo" aria-label="Estado"></select>
+              <select id="fromCd" aria-label="Ciudad" disabled></select>
+            </div>
+            <div id="fromTxt" class="txt" hidden>
+              <input id="from" autocomplete="off" placeholder="Ej. Villahermosa" aria-label="Salimos de">
+              <div class="sugg" id="fromSugg" hidden></div>
+            </div>
+            <button type="button" class="linkbtn" id="fromMode">Escribir otra ciudad</button>
             <span class="picked" id="fromPicked"></span>
-            <div class="sugg" id="fromSugg" hidden></div>
-          </label>
-          <label class="f" for="to">Vamos a
-            <input id="to" autocomplete="off" placeholder="Ej. Cancún">
+          </div>
+          <div class="f place">Vamos a
+            <div class="pair">
+              <select id="toEdo" aria-label="Estado"></select>
+              <select id="toCd" aria-label="Ciudad" disabled></select>
+            </div>
+            <div id="toTxt" class="txt" hidden>
+              <input id="to" autocomplete="off" placeholder="Ej. Cancún" aria-label="Vamos a">
+              <div class="sugg" id="toSugg" hidden></div>
+            </div>
+            <button type="button" class="linkbtn" id="toMode">Escribir otra ciudad</button>
             <span class="picked" id="toPicked"></span>
-            <div class="sugg" id="toSugg" hidden></div>
-          </label>
-          <label class="f" for="via">Pasar por (opcional)
-            <input id="via" autocomplete="off" placeholder="Ej. Macuspana">
+          </div>
+          <div class="f place">Pasar por (opcional)
+            <div class="pair">
+              <select id="viaEdo" aria-label="Estado"></select>
+              <select id="viaCd" aria-label="Ciudad" disabled></select>
+            </div>
+            <div id="viaTxt" class="txt" hidden>
+              <input id="via" autocomplete="off" placeholder="Ej. Macuspana" aria-label="Pasar por (opcional)">
+              <div class="sugg" id="viaSugg" hidden></div>
+            </div>
+            <button type="button" class="linkbtn" id="viaMode">Escribir otra ciudad</button>
             <span class="picked" id="viaPicked"></span>
-            <div class="sugg" id="viaSugg" hidden></div>
-          </label>
+          </div>
           <label class="f" for="pax">Personas<input id="pax" type="number" min="1" value="4" inputmode="numeric"></label>
           <label class="f" for="families">Familias que pagan<input id="families" type="number" min="1" value="1" inputmode="numeric"></label>
         </div>
@@ -288,6 +313,51 @@ function setupPlace(key){
   inp.addEventListener('focus',()=>{if(!S[key]&&list.length&&inp.value.trim().length>=3)box.hidden=false});
 }
 setupPlace('from');setupPlace('to');setupPlace('via');
+
+// ---------- Estado y ciudad con listas desplegables ----------
+const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+let EDOS=[];
+function setPicked(key,l){
+  S[key]=l;$(key+'Picked').textContent=l?'✓ '+l.nombre+(l.estado?', '+l.estado:''):'';updateSign();
+}
+function setupDropdown(key,optional){
+  const edo=$(key+'Edo'),cd=$(key+'Cd'),mode=$(key+'Mode'),txt=$(key+'Txt'),pair=edo.parentNode;
+  edo.innerHTML=`<option value="">${optional?'Sin parada':'Elige el estado'}</option>`+EDOS.map((e,i)=>`<option value="${i}">${esc(e.estado)}</option>`).join('');
+  edo.addEventListener('change',()=>{
+    setPicked(key,null);
+    const e=EDOS[+edo.value];
+    if(edo.value===''||!e){cd.innerHTML='';cd.disabled=true;return}
+    cd.innerHTML='<option value="">Elige la ciudad</option>'+e.ciudades.map(c=>`<option>${esc(c)}</option>`).join('');
+    cd.disabled=false;
+    if(e.ciudades.length===1){cd.value=e.ciudades[0];cd.dispatchEvent(new Event('change'))}
+  });
+  cd.addEventListener('change',async()=>{
+    setPicked(key,null);
+    const e=EDOS[+edo.value],c=cd.value;if(!e||!c)return;
+    $(key+'Picked').textContent='Ubicando '+c+'…';
+    try{
+      const r=await fetch('/api/buscar?q='+encodeURIComponent(c));const j=await r.json();
+      if(!r.ok)throw new Error(j.error);
+      if(cd.value!==c)return;
+      const enEdo=j.lugares.filter(l=>e.abr.includes(norm(l.estado))||norm(l.estado).startsWith(e.abr[0]));
+      const pool=enEdo.length?enEdo:[];
+      const nc=norm(c);
+      const m=pool.find(l=>norm(l.nombre.split(',')[0])===nc)||pool.find(l=>norm(l.nombre).startsWith(nc))||pool[0];
+      if(m)setPicked(key,m);
+      else $(key+'Picked').textContent='No encontré '+c+'. Usa "Escribir otra ciudad".';
+    }catch(err){$(key+'Picked').textContent='No se pudo ubicar la ciudad. Intenta de nuevo.'}
+  });
+  mode.addEventListener('click',()=>{
+    const toTxt=txt.hidden;txt.hidden=!toTxt;pair.hidden=toTxt;
+    mode.textContent=toTxt?'Elegir de la lista':'Escribir otra ciudad';
+    setPicked(key,null);$(key).value='';edo.value='';cd.innerHTML='';cd.disabled=true;
+    if(toTxt)$(key).focus();
+  });
+}
+fetch('/ciudades.json').then(r=>r.json()).then(d=>{EDOS=d;setupDropdown('from');setupDropdown('to');setupDropdown('via',true)}).catch(()=>{
+  ['from','to','via'].forEach(k=>{$(k+'Txt').hidden=false;$(k+'Edo').parentNode.hidden=true;$(k+'Mode').hidden=true});
+});
+
 function updateSign(){$('signRoute').textContent=`${S.from?S.from.nombre:'Origen'} → ${S.to?S.to.nombre:'Destino'}`}
 
 // ---------- Vehículo ----------
@@ -396,7 +466,7 @@ async function getJSON(url){
 $('calc').addEventListener('click',async()=>{
   const msg=$('routeMsg');
   if(!S.from||!S.to){msg.className='msg err';msg.textContent='Elige el origen y el destino de la lista de sugerencias.';msg.hidden=false;return}
-  const useVia=!!(S.via&&$('via').value.trim());
+  const useVia=!!S.via;
   const base=`/api/ruta?o=${S.from.id}&d=${S.to.id}&v=${$('vclass').value}`+(useVia?`&p=${S.via.id}&pn=${encodeURIComponent(S.via.nombre)}`:'');
   const jobs=useVia?[['cuota',0],['libre',0],['cuota',1],['libre',1]]:[['cuota',0],['libre',0]];
   $('calc').disabled=true;$('calc').textContent='Calculando…';msg.className='msg';msg.hidden=false;
