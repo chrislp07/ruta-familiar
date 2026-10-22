@@ -91,6 +91,8 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
 #map{height:360px;border-radius:var(--r);border:1px solid var(--line);z-index:0}
 @media (max-width:620px){#map{height:300px}}
 .toll-ico{background:var(--amber);color:var(--amber-ink);border:2px solid #fff;border-radius:6px;font:700 11px/1 var(--body);padding:3px 5px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.timenote{display:flex;flex-direction:column;gap:10px;align-items:flex-start;background:var(--soft);border-left:4px solid var(--amber);border-radius:8px;padding:12px 14px;font-size:.92rem}
+.timenote p{margin:0;max-width:65ch}
 .msg{border-radius:8px;padding:12px;background:var(--soft)}
 .msg.err{background:var(--bad-bg);color:var(--bad-ink);border:1px solid var(--bad)}
 .sum{background:var(--paper);color:var(--ink);border-radius:4px 4px 10px 10px;position:relative;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px rgba(11,60,35,.12);margin-top:10px}
@@ -230,6 +232,10 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
         <div id="map" role="region" hidden aria-label="Mapa de las rutas calculadas. También puedes elegir la ruta con las tarjetas de abajo."></div>
         <p class="hint" id="mapHint" hidden>Toca una ruta en el mapa o en las tarjetas para elegirla. Los cuadros amarillos son las casetas.</p>
         <div class="cards" id="cards" role="group" aria-label="Rutas disponibles"></div>
+        <div class="timenote" id="timeNote" hidden>
+          <p>Los tiempos son los del INEGI: manejo continuo, sin tráfico, curvas lentas ni paradas. En carreteras de sierra el viaje real puede tardar casi el doble. Para un tiempo más preciso, consulta Google Maps.</p>
+          <a class="btn" id="gmRoute" href="#" target="_blank" rel="noopener">Ver tiempo real en Google Maps</a>
+        </div>
         <div id="detail"></div>
       </section>
 
@@ -555,8 +561,8 @@ function recalc(){
   const fast=S.routes.length>1?S.routes.reduce((a,r,i)=>r.minutos<S.routes[a].minutos?i:a,0):-1;
   $('cards').innerHTML=S.routes.map((r,i)=>`<button type="button" class="rcard" data-pick="${i}" aria-pressed="${i===S.sel}">
     <span class="name">${esc(r.nombre)}</span><span class="meta">Casetas${cs[i].mult>1?' (ida y vuelta)':''}</span><span class="tot num">${money.format(cs[i].tolls)}</span>
-    <span class="meta num">${Math.round(r.km)} km en ${hm(r.minutos/60)}<br>${r.casetas.length} caseta${r.casetas.length===1?'':'s'}</span>
-    <span class="meta num">Gasolina aprox.: ${money.format(cs[i].fuel)}</span><span class="tags">${i===cheap?'<span class="pill cheap">Más barata en total</span>':''}${i===fast?'<span class="pill fast">Más rápida</span>':''}</span></button>`).join('');
+    <span class="meta num">${Math.round(r.km)} km, ${hm(r.minutos/60)} sin tráfico<br>${r.casetas.length} caseta${r.casetas.length===1?'':'s'}</span>
+    <span class="meta num">Gasolina aprox.: ${money.format(cs[i].fuel)}</span><span class="tags">${i===cheap?'<span class="pill cheap">Más barata en total</span>':''}</span></button>`).join('');
   const r=S.routes[S.sel],c=cs[S.sel];
   $('detail').innerHTML=r.casetas.length?`<table class="tl num"><caption>Casetas de “${esc(r.nombre)}”, solo ida</caption>${r.casetas.map(k=>`<tr><th scope="row">${esc(k.nombre)}</th><td>${money.format(k.costo)}</td></tr>`).join('')}<tr class="tot"><th scope="row">Total por trayecto</th><td>${money.format(r.totalCasetas)}</td></tr>${c.mult>1?`<tr class="tot"><th scope="row">Ida y vuelta</th><td>${money.format(c.tolls)}</td></tr>`:''}</table>`:'<p class="hint">Esta ruta no tiene casetas.</p>';
   const fuelName=FUELS[$('fuel').value][0];
@@ -590,13 +596,16 @@ function recalc(){
     <li><span><i class="dot c-extra" aria-hidden="true"></i>Comidas y extras</span><span>${money.format(c.extras)}</span></li>
     <li class="total"><span>Total</span><span>${money.format(c.total)}</span></li>`;
   $('tagCall').hidden=c.tolls<=0;$('tagCall').innerHTML=`Carga al menos <b>${money.format(c.tolls)}</b> en tu TAG antes de salir.`;
-  $('stopsCall').hidden=false;$('stopsCall').innerHTML=`<b>${hm(c.hours)}</b> de manejo por trayecto. Con niños, planea <b>${c.stops}</b> parada${c.stops===1?'':'s'}.`;
+  $('stopsCall').hidden=false;$('stopsCall').innerHTML=`Tiempo ideal del INEGI: <b>${hm(c.hours)}</b> por trayecto, sin tráfico ni paradas. Con niños, planea al menos <b>${c.stops}</b> parada${c.stops===1?'':'s'}. Revisa el tiempo real en Google Maps.`;
   const from=S.from.nombre,to=S.to.nombre,veh=S.veh?`${S.veh.marca} ${S.veh.modelo} ${S.veh.version}`:'';
-  summaryText=[`Viaje: ${from} → ${to} (${$('round').checked?'ida y vuelta':'solo ida'})`,`Ruta: ${r.nombre} · ${Math.round(r.km)} km · ${hm(c.hours)}`,veh?`Vehículo: ${veh}`:'',
+  summaryText=[`Viaje: ${from} → ${to} (${$('round').checked?'ida y vuelta':'solo ida'})`,`Ruta: ${r.nombre}, ${Math.round(r.km)} km (tiempo sin tráfico: ${hm(c.hours)})`,veh?`Vehículo: ${veh}`:'',
     `Casetas: ${money.format(c.tolls)}`,`Gasolina: ${money.format(c.fuel)} (${c.liters.toFixed(0)} L de ${fuelName})`,`Comidas y extras: ${money.format(c.extras)}`,`TOTAL: ${money.format(c.total)}`,
     n($('families').value)>1?`Por familia: ${money.format(c.perFam)}`:`Por persona: ${money.format(c.perPax)}`,'Calculado con Ruta Familiar'].filter(Boolean).join('\n');
   $('wa').href='https://wa.me/?text='+encodeURIComponent(summaryText);
-  $('maps').href='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(from)+'&destination='+encodeURIComponent(to)+'&travelmode=driving';
+  const lugar=l=>l?String(l.nombre).split(',')[0].trim()+(l.estado?', '+l.estado:''):'';
+  const viaQ=String(r.tipo||'').endsWith('-via')&&S.via?'&waypoints='+encodeURIComponent(lugar(S.via)):'';
+  const gm='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(lugar(S.from))+'&destination='+encodeURIComponent(lugar(S.to))+viaQ+'&travelmode=driving';
+  $('maps').href=gm;$('gmRoute').href=gm;$('timeNote').hidden=false;
 }
 $('copy').addEventListener('click',()=>{
   if(!summaryText){$('toast').textContent='Primero calcula una ruta.';return}
