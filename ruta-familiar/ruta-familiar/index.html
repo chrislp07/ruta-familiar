@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ruta Familiar</title>
+<meta name="description" content="Calcula cuánto cuesta tu viaje por carretera en México: casetas, gasolina y extras.">
+<meta name="theme-color" content="#0b6b3a">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Overpass:wght@600;800&display=swap">
+<style>
+:root{
+  --bg:#f3f6f3; --surface:#ffffff; --soft:#e6eee8; --ink:#16231b; --muted:#56685d; --line:#d3ddd6;
+  --sign:#0b6b3a; --sign-ink:#ffffff; --amber:#f2b705; --amber-ink:#2b2300; --blue:#1f4e9b;
+  --good:#1b7a44; --warn:#8f6400; --bad:#b3261e;
+  --display:"Overpass","Arial Narrow",Arial,sans-serif;
+  --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:10px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0e1411; --surface:#17201b; --soft:#1e2a23; --ink:#e5eee8; --muted:#9bb0a2; --line:#2a3830;
+  --sign:#16804a; --amber:#f5c33b; --blue:#86acf0; --good:#4cc283; --warn:#e8b54a; --bad:#ff8a80; color-scheme:dark }}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px}
+[hidden]{display:none!important}
+.app{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+.num{font-variant-numeric:tabular-nums}
+.sign{background:var(--sign);color:var(--sign-ink);border-radius:14px;padding:6px}
+.sign-in{border:3px solid var(--sign-ink);border-radius:10px;padding:14px 18px;display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;justify-content:space-between}
+.sign h1{font-size:clamp(1.7rem,5vw,2.4rem);font-weight:800;line-height:1}
+.sign p{margin:4px 0 0;font-size:.95rem;opacity:.92}
+.sign .km{font-family:var(--display);font-weight:800;font-size:1.05rem;border:2px solid var(--sign-ink);border-radius:8px;padding:6px 10px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}
+@media (min-width:900px){.grid{grid-template-columns:minmax(0,1fr) 370px}.aside{position:sticky;top:12px}}
+.steps{display:flex;flex-direction:column;gap:16px;min-width:0}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.step-h{display:flex;align-items:center;gap:10px}
+.step-n{font-family:var(--display);font-weight:800;width:30px;height:30px;border-radius:50%;background:var(--sign);color:var(--sign-ink);display:grid;place-items:center;flex:none}
+.step-h h2{font-size:1.25rem;font-weight:800}
+.hint{color:var(--muted);font-size:.9rem;margin:0}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted);font-weight:700;min-width:0;position:relative}
+input,select{font:inherit;font-size:1rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;width:100%;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.check{display:flex;align-items:center;gap:10px;font-weight:700;font-size:.95rem;min-height:44px}
+.check input{width:22px;height:22px;min-height:0;accent-color:var(--sign)}
+button,.btn{font:inherit;font-weight:700;cursor:pointer;border-radius:8px;min-height:44px;padding:10px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button:disabled{opacity:.6;cursor:wait}
+.btn-main{background:var(--sign);color:var(--sign-ink);border-color:var(--sign)}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.sugg{position:absolute;top:100%;left:0;right:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-top:4px;max-height:260px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.15);font-weight:400;color:var(--ink)}
+.sugg button{display:flex;width:100%;justify-content:space-between;border:0;border-radius:0;border-bottom:1px solid var(--line);text-align:left;font-weight:400}
+.sugg button span{color:var(--muted);font-size:.85rem}
+.picked{font-size:.8rem;color:var(--good);font-weight:700}
+.vinfo{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.vinfo div{background:var(--soft);border-radius:8px;padding:8px 10px}
+.vinfo b{display:block;font-family:var(--display);font-size:1.3rem}
+.vinfo span{font-size:.78rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.vinfo .use{outline:2px solid var(--sign)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.rcard{text-align:left;display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:12px;border:2px solid var(--line);background:var(--bg)}
+.rcard[aria-pressed="true"]{border-color:var(--sign);background:var(--soft)}
+.rcard .name{font-family:var(--display);font-weight:800}
+.rcard .tot{font-family:var(--display);font-weight:800;font-size:1.6rem;line-height:1.1}
+.rcard .meta{font-size:.85rem;color:var(--muted);font-weight:400}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:.75rem;font-weight:700;padding:3px 8px;border-radius:999px;border:1px solid currentColor}
+.pill.cheap{color:var(--good)} .pill.fast{color:var(--blue)}
+table.tl{width:100%;border-collapse:collapse;font-size:.95rem}
+table.tl td{padding:8px 4px;border-bottom:1px solid var(--line)}
+table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
+.msg{border-radius:8px;padding:12px;background:var(--soft)}
+.msg.err{background:var(--bad);color:#fff}
+.sum{background:var(--surface);border:2px solid var(--sign);border-radius:var(--r);overflow:hidden}
+.sum-top{background:var(--sign);color:var(--sign-ink);padding:14px 16px}
+.sum-top .lbl{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;opacity:.9}
+.sum-top .big{font-family:var(--display);font-weight:800;font-size:2.6rem;line-height:1.05}
+.sum-body{padding:14px 16px;display:flex;flex-direction:column;gap:14px}
+.bar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--soft)}
+.c-toll{background:var(--sign)} .c-fuel{background:var(--amber)} .c-extra{background:var(--blue)}
+.lines{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.lines li{display:flex;justify-content:space-between;gap:10px}
+.lines li span:first-child{display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:3px;flex:none}
+.lines .muted{color:var(--muted);font-size:.85rem}
+.lines .total{border-top:1px solid var(--line);padding-top:8px;font-weight:700}
+.call{border-radius:8px;padding:10px 12px;font-size:.92rem}
+.call-tag{background:var(--amber);color:var(--amber-ink)}
+.call-info{background:var(--soft)}
+.before h3{font-size:1rem;font-weight:800;margin-bottom:6px}
+.before ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:.92rem}
+.before a{color:var(--blue)}
+.toast{min-height:1.2em;font-size:.85rem;color:var(--good);font-weight:700}
+.foot{color:var(--muted);font-size:.82rem;max-width:75ch}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="sign"><div class="sign-in">
+    <div><h1>Ruta Familiar</h1><p>Cuánto cuesta tu viaje antes de salir: casetas, gasolina y extras.</p></div>
+    <div class="km" id="signRoute">¿A dónde vamos?</div>
+  </div></header>
+
+  <div class="grid">
+    <main class="steps">
+      <section class="step">
+        <div class="step-h"><span class="step-n">1</span><h2>El viaje</h2></div>
+        <div class="fields">
+          <label class="f" for="from">Salimos de
+            <input id="from" autocomplete="off" placeholder="Ej. Villahermosa">
+            <span class="picked" id="fromPicked"></span>
+            <div class="sugg" id="fromSugg" hidden></div>
+          </label>
+          <label class="f" for="to">Vamos a
+            <input id="to" autocomplete="off" placeholder="Ej. Cancún">
+            <span class="picked" id="toPicked"></span>
+            <div class="sugg" id="toSugg" hidden></div>
+          </label>
+          <label class="f" for="pax">Personas<input id="pax" type="number" min="1" value="4" inputmode="numeric"></label>
+          <label class="f" for="families">Familias que pagan<input id="families" type="number" min="1" value="1" inputmode="numeric"></label>
+        </div>
+        <label class="check" for="round"><input id="round" type="checkbox"> Ida y vuelta</label>
+      </section>
+
+      <section class="step">
+        <div class="step-h"><span class="step-n">2</span><h2>Tu vehículo</h2></div>
+        <div class="fields">
+          <label class="f" for="marca">Marca<select id="marca"></select></label>
+          <label class="f" for="modelo">Modelo<select id="modelo"></select></label>
+          <label class="f" for="version">Versión<select id="version"></select></label>
+        </div>
+        <div id="vOfficial" hidden>
+          <div class="vinfo num" id="vinfo"></div>
+          <p class="hint" id="vsrc"></p>
+        </div>
+        <div id="vManual" class="fields" hidden>
+          <label class="f" for="vtype">Tipo de vehículo<select id="vtype"></select></label>
+          <label class="f" for="kml">Rendimiento en carretera (km/L)<input id="kml" type="number" min="1" step="0.5" inputmode="decimal"></label>
+        </div>
+        <div class="fields">
+          <label class="f" for="fuel">Combustible<select id="fuel"></select></label>
+          <label class="f" for="fprice">Precio por litro ($)<input id="fprice" type="number" min="0" step="0.01" inputmode="decimal"></label>
+          <label class="f" for="vclass">Paga casetas como<select id="vclass"><option value="1">Automóvil</option><option value="0">Motocicleta</option></select></label>
+        </div>
+        <label class="check" for="buffer"><input id="buffer" type="checkbox" checked> Sumar 10% por aire acondicionado, subidas y auto lleno</label>
+      </section>
+
+      <section class="step">
+        <div class="step-h"><span class="step-n">3</span><h2>Rutas y casetas</h2></div>
+        <div class="row"><button type="button" class="btn-main" id="calc">Calcular rutas</button></div>
+        <div id="routeMsg" class="msg" hidden></div>
+        <div class="cards" id="cards"></div>
+        <div id="detail"></div>
+      </section>
+
+      <section class="step">
+        <div class="step-h"><span class="step-n">4</span><h2>Gastos extra</h2></div>
+        <div class="fields">
+          <label class="f" for="meal">Comida por persona ($)<input id="meal" type="number" min="0" value="180" inputmode="numeric"></label>
+          <label class="f" for="meals">Comidas en el camino<input id="meals" type="number" min="0" value="2" inputmode="numeric"></label>
+          <label class="f" for="snacks">Botanas y bebidas ($)<input id="snacks" type="number" min="0" value="300" inputmode="numeric"></label>
+          <label class="f" for="hotel">Hotel ($)<input id="hotel" type="number" min="0" value="0" inputmode="numeric"></label>
+          <label class="f" for="other">Otros ($)<input id="other" type="number" min="0" value="0" inputmode="numeric"></label>
+        </div>
+      </section>
+      <p class="foot">Rutas, distancias y casetas: API de Ruteo del INEGI, Red Nacional de Caminos. El INEGI actualiza las tarifas una vez al año, por lo que pueden diferir de las vigentes. Rendimientos: Catálogo de Rendimiento de Combustible 2026 del Gobierno de México. Verifica antes de salir.</p>
+    </main>
+
+    <aside class="aside">
+      <div class="sum">
+        <div class="sum-top">
+          <div class="lbl" id="sumRoute">Calcula una ruta</div>
+          <div class="big num" id="sumTotal">$0</div>
+          <div class="num" id="sumSplit"></div>
+        </div>
+        <div class="sum-body">
+          <div class="bar" aria-hidden="true"><span class="c-toll" id="bToll"></span><span class="c-fuel" id="bFuel"></span><span class="c-extra" id="bExtra"></span></div>
+          <ul class="lines num" id="lines"></ul>
+          <div class="call call-tag" id="tagCall" hidden></div>
+          <div class="call call-info" id="stopsCall" hidden></div>
+          <div class="row">
+            <button type="button" class="btn-main" id="copy">Copiar resumen</button>
+            <a class="btn" id="wa" href="#" target="_blank" rel="noopener">WhatsApp</a>
+            <a class="btn" id="maps" href="#" target="_blank" rel="noopener">Abrir en Maps</a>
+          </div>
+          <div class="toast" id="toast" role="status" aria-live="polite"></div>
+          <div class="before"><h3>Antes de salir</h3><ul>
+            <li>Revisa cierres y accidentes en <a href="https://x.com/CAPUFE" target="_blank" rel="noopener">@CAPUFE</a> y <a href="https://x.com/GN_Carreteras" target="_blank" rel="noopener">@GN_Carreteras</a>.</li>
+            <li>Auxilio vial: <b>074</b></li>
+            <li>Carga saldo en tu TAG: muchas casetas ya no aceptan efectivo.</li>
+          </ul></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+const PRESETS={compacto:['Auto compacto',16],sedan:['Sedán',14],suv:['SUV',11],van:['Camioneta / van',9],pickup:['Pickup',8]};
+const FUELS={magna:['Magna',23.69],premium:['Premium',28.53],diesel:['Diésel',27.03]};
+const money=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0});
+const $=id=>document.getElementById(id);
+const n=v=>{const x=parseFloat(v);return isFinite(x)?x:0};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const S={from:null,to:null,routes:[],sel:0,veh:null,kml:11,prices:Object.fromEntries(Object.entries(FUELS).map(([k,v])=>[k,v[1]]))};
+let CAT=[];
+
+// ---------- Origen / destino ----------
+function setupPlace(key){
+  const inp=$(key),box=$(key+'Sugg'),picked=$(key+'Picked');let t,ctrl;
+  inp.addEventListener('input',()=>{
+    S[key]=null;picked.textContent='';clearTimeout(t);
+    const q=inp.value.trim();if(q.length<3){box.hidden=true;return}
+    t=setTimeout(async()=>{
+      if(ctrl)ctrl.abort();ctrl=new AbortController();
+      try{
+        const r=await fetch('/api/buscar?q='+encodeURIComponent(q),{signal:ctrl.signal});
+        const j=await r.json();
+        if(!r.ok)throw new Error(j.error);
+        box.innerHTML=j.lugares.length?j.lugares.map((l,i)=>`<button type="button" data-i="${i}">${esc(l.nombre)} <span>${esc(l.estado)}</span></button>`).join(''):'<div style="padding:10px">Sin resultados. Prueba con otro nombre.</div>';
+        box._list=j.lugares;box.hidden=false;
+      }catch(e){if(e.name!=='AbortError'){box.innerHTML=`<div style="padding:10px">${esc(e.message||'No se pudo buscar.')}</div>`;box.hidden=false}}
+    },300);
+  });
+  box.addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    const l=box._list[+b.dataset.i];S[key]=l;inp.value=l.nombre;picked.textContent='✓ '+l.nombre+(l.estado?', '+l.estado:'');box.hidden=true;
+    updateSign();
+  });
+  inp.addEventListener('blur',()=>setTimeout(()=>box.hidden=true,200));
+}
+setupPlace('from');setupPlace('to');
+function updateSign(){$('signRoute').textContent=`${S.from?S.from.nombre:'Origen'} → ${S.to?S.to.nombre:'Destino'}`}
+
+// ---------- Vehículo ----------
+$('vtype').innerHTML=Object.entries(PRESETS).map(([k,v])=>`<option value="${k}">${v[0]} (≈${v[1]} km/L)</option>`).join('');
+$('vtype').value='suv';$('kml').value=11;
+$('fuel').innerHTML=Object.entries(FUELS).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('');
+$('fprice').value=S.prices.magna;
+const uniq=a=>[...new Set(a)].sort((x,y)=>x.localeCompare(y,'es'));
+function fillMarcas(){
+  $('marca').innerHTML='<option value="">Elige la marca</option>'+uniq(CAT.map(v=>v.marca)).map(m=>`<option>${esc(m)}</option>`).join('')+'<option value="__otro">Mi auto no aparece</option>';
+  $('modelo').innerHTML='';$('version').innerHTML='';
+}
+$('marca').addEventListener('change',()=>{
+  const m=$('marca').value;S.veh=null;
+  if(m==='__otro'||!CAT.length){$('vManual').hidden=false;$('vOfficial').hidden=true;$('modelo').innerHTML='';$('version').innerHTML='';S.kml=n($('kml').value);recalc();return}
+  $('vManual').hidden=true;
+  $('modelo').innerHTML='<option value="">Elige el modelo</option>'+uniq(CAT.filter(v=>v.marca===m).map(v=>v.modelo)).map(x=>`<option>${esc(x)}</option>`).join('');
+  $('version').innerHTML='';$('vOfficial').hidden=true;
+});
+$('modelo').addEventListener('change',()=>{
+  const m=$('marca').value,mo=$('modelo').value;
+  const vs=CAT.map((v,i)=>({v,i})).filter(o=>o.v.marca===m&&o.v.modelo===mo);
+  $('version').innerHTML='<option value="">Elige la versión</option>'+vs.map(o=>`<option value="${o.i}">${esc(o.v.version)}${o.v.transmision?' · '+esc(o.v.transmision):''}</option>`).join('');
+  if(vs.length===1){$('version').value=vs[0].i;pickVersion()}
+});
+$('version').addEventListener('change',pickVersion);
+function pickVersion(){
+  const v=CAT[+$('version').value];if(!v)return;S.veh=v;
+  const use=v.carretera?'carretera':'combinado';
+  S.kml=n(v[use]);
+  $('vinfo').innerHTML=['ciudad','carretera','combinado'].map(k=>`<div class="${k===use?'use':''}"><span>${k}</span><b>${v[k]?v[k]+' km/L':'—'}</b></div>`).join('');
+  $('vsrc').textContent=`Fuente: ${v.fuente||'dato oficial'} (modelo ${v.anio||''}). La app usa el rendimiento en ${use} para el viaje.`;
+  $('vOfficial').hidden=false;
+  if(v.combustible){const f=/di[eé]sel/i.test(v.combustible)?'diesel':(/premium/i.test(v.combustible)?'premium':'magna');$('fuel').value=f;$('fprice').value=S.prices[f]}
+  recalc();
+}
+$('vtype').addEventListener('change',()=>{$('kml').value=PRESETS[$('vtype').value][1];S.kml=n($('kml').value);recalc()});
+$('kml').addEventListener('input',()=>{S.kml=n($('kml').value);recalc()});
+$('fuel').addEventListener('change',()=>{$('fprice').value=S.prices[$('fuel').value];recalc()});
+$('fprice').addEventListener('input',()=>{S.prices[$('fuel').value]=n($('fprice').value);recalc()});
+fetch('/vehiculos.json').then(r=>r.json()).then(d=>{CAT=Array.isArray(d)?d:[];fillMarcas();if(!CAT.length){$('marca').value='__otro';$('marca').dispatchEvent(new Event('change'))}}).catch(()=>{fillMarcas();$('marca').value='__otro';$('marca').dispatchEvent(new Event('change'))});
+
+// ---------- Rutas ----------
+$('calc').addEventListener('click',async()=>{
+  const msg=$('routeMsg');
+  if(!S.from||!S.to){msg.className='msg err';msg.textContent='Elige el origen y el destino de la lista de sugerencias.';msg.hidden=false;return}
+  $('calc').disabled=true;$('calc').textContent='Calculando…';msg.className='msg';msg.textContent='Consultando rutas y casetas en el INEGI…';msg.hidden=false;
+  try{
+    const r=await fetch(`/api/ruta?o=${S.from.id}&d=${S.to.id}&v=${$('vclass').value}`);
+    const j=await r.json();if(!r.ok)throw new Error(j.error);
+    S.routes=j.rutas;S.sel=0;msg.hidden=true;recalc();
+  }catch(e){msg.className='msg err';msg.textContent=e.message||'No se pudo calcular la ruta. Intenta de nuevo.'}
+  finally{$('calc').disabled=false;$('calc').textContent='Calcular rutas'}
+});
+$('cards').addEventListener('click',e=>{const b=e.target.closest('[data-pick]');if(!b)return;S.sel=+b.dataset.pick;recalc()});
+document.querySelectorAll('#pax,#families,#round,#buffer,#meal,#meals,#snacks,#hotel,#other').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',recalc));
+
+function calc(r){
+  const mult=$('round').checked?2:1,pax=Math.max(1,n($('pax').value)),kml=Math.max(1,S.kml||1);
+  const liters=r.km/kml*($('buffer').checked?1.1:1)*mult;
+  const fuel=liters*n($('fprice').value);
+  const tolls=r.totalCasetas*mult;
+  const meals=n($('meal').value)*pax*n($('meals').value);
+  const extras=meals+n($('snacks').value)+n($('hotel').value)+n($('other').value);
+  const total=fuel+tolls+extras,hours=r.minutos/60;
+  return{mult,pax,liters,fuel,tolls,meals,extras,total,hours,stops:Math.max(0,Math.ceil(hours/2.5)-1),perFam:total/Math.max(1,n($('families').value)),perPax:total/pax};
+}
+const hm=h=>`${Math.floor(h)} h ${String(Math.round((h%1)*60)).padStart(2,'0')} min`;
+let summaryText='';
+function recalc(){
+  if(!S.routes.length)return;
+  const cs=S.routes.map(calc);
+  const cheap=S.routes.length>1?cs.reduce((a,c,i)=>c.total<cs[a].total?i:a,0):-1;
+  const fast=S.routes.length>1?S.routes.reduce((a,r,i)=>r.minutos<S.routes[a].minutos?i:a,0):-1;
+  $('cards').innerHTML=S.routes.map((r,i)=>`<button type="button" class="rcard" data-pick="${i}" aria-pressed="${i===S.sel}">
+    <span class="name">${esc(r.nombre)}</span><span class="tot num">${money.format(cs[i].total)}</span>
+    <span class="meta num">${Math.round(r.km)} km · ${hm(r.minutos/60)} · ${r.casetas.length} caseta${r.casetas.length===1?'':'s'}</span>
+    <span class="tags">${i===cheap?'<span class="pill cheap">Más barata</span>':''}${i===fast?'<span class="pill fast">Más rápida</span>':''}</span></button>`).join('');
+  const r=S.routes[S.sel],c=cs[S.sel];
+  $('detail').innerHTML=r.casetas.length?`<h3 style="font-size:1rem;margin-bottom:6px">Casetas de “${esc(r.nombre)}” (solo ida)</h3><table class="tl num">${r.casetas.map(k=>`<tr><td>${esc(k.nombre)}</td><td>${money.format(k.costo)}</td></tr>`).join('')}<tr><td><b>Total por trayecto</b></td><td>${money.format(r.totalCasetas)}</td></tr></table>`:'<p class="hint">Esta ruta no tiene casetas.</p>';
+  const fuelName=FUELS[$('fuel').value][0];
+  $('sumRoute').textContent=`${r.nombre} · ${$('round').checked?'ida y vuelta':'solo ida'}`;
+  $('sumTotal').textContent=money.format(c.total);
+  $('sumSplit').textContent=n($('families').value)>1?`${money.format(c.perFam)} por familia · ${money.format(c.perPax)} por persona`:`${money.format(c.perPax)} por persona`;
+  const t=c.total||1;$('bToll').style.width=c.tolls/t*100+'%';$('bFuel').style.width=c.fuel/t*100+'%';$('bExtra').style.width=c.extras/t*100+'%';
+  $('lines').innerHTML=`<li><span><i class="dot c-toll"></i>Casetas</span><span>${money.format(c.tolls)}</span></li>
+    <li><span><i class="dot c-fuel"></i>Gasolina</span><span>${money.format(c.fuel)}</span></li>
+    <li class="muted"><span style="padding-left:18px">${c.liters.toFixed(0)} L de ${fuelName} · ${Math.round(r.km*c.mult)} km</span><span></span></li>
+    <li><span><i class="dot c-extra"></i>Comidas y extras</span><span>${money.format(c.extras)}</span></li>
+    <li class="total"><span>Total</span><span>${money.format(c.total)}</span></li>`;
+  $('tagCall').hidden=c.tolls<=0;$('tagCall').innerHTML=`Carga al menos <b>${money.format(c.tolls)}</b> en tu TAG antes de salir.`;
+  $('stopsCall').hidden=false;$('stopsCall').innerHTML=`<b>${hm(c.hours)}</b> de manejo por trayecto. Con niños, planea <b>${c.stops}</b> parada${c.stops===1?'':'s'}.`;
+  const from=S.from.nombre,to=S.to.nombre,veh=S.veh?`${S.veh.marca} ${S.veh.modelo} ${S.veh.version}`:'';
+  summaryText=[`Viaje: ${from} → ${to} (${$('round').checked?'ida y vuelta':'solo ida'})`,`Ruta: ${r.nombre} · ${Math.round(r.km)} km · ${hm(c.hours)}`,veh?`Vehículo: ${veh}`:'',
+    `Casetas: ${money.format(c.tolls)}`,`Gasolina: ${money.format(c.fuel)} (${c.liters.toFixed(0)} L de ${fuelName})`,`Comidas y extras: ${money.format(c.extras)}`,`TOTAL: ${money.format(c.total)}`,
+    n($('families').value)>1?`Por familia: ${money.format(c.perFam)}`:`Por persona: ${money.format(c.perPax)}`,'Calculado con Ruta Familiar'].filter(Boolean).join('\n');
+  $('wa').href='https://wa.me/?text='+encodeURIComponent(summaryText);
+  $('maps').href='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(from)+'&destination='+encodeURIComponent(to)+'&travelmode=driving';
+}
+$('copy').addEventListener('click',()=>{
+  if(!summaryText){$('toast').textContent='Primero calcula una ruta.';return}
+  navigator.clipboard.writeText(summaryText).then(()=>$('toast').textContent='Resumen copiado.',()=>$('toast').textContent='No se pudo copiar; usa el botón de WhatsApp.');
+});
+})();
+</script>
+</body>
+</html>
