@@ -241,27 +241,51 @@ let CAT=[];
 
 // ---------- Origen / destino ----------
 function setupPlace(key){
-  const inp=$(key),box=$(key+'Sugg'),picked=$(key+'Picked');let t,ctrl;
+  const inp=$(key),box=$(key+'Sugg'),picked=$(key+'Picked');let t,ctrl,list=[];
+  const close=()=>{box.hidden=true};
+  const choose=l=>{
+    clearTimeout(t);if(ctrl)ctrl.abort();          // evita que una búsqueda tardía cambie la lista
+    S[key]=l;inp.value=l.nombre;picked.textContent='✓ '+l.nombre+(l.estado?', '+l.estado:'');close();updateSign();
+  };
   inp.addEventListener('input',()=>{
     S[key]=null;picked.textContent='';clearTimeout(t);
-    const q=inp.value.trim();if(q.length<3){box.hidden=true;return}
+    const q=inp.value.trim();if(q.length<3){close();return}
     t=setTimeout(async()=>{
       if(ctrl)ctrl.abort();ctrl=new AbortController();
       try{
         const r=await fetch('/api/buscar?q='+encodeURIComponent(q),{signal:ctrl.signal});
         const j=await r.json();
         if(!r.ok)throw new Error(j.error);
-        box.innerHTML=j.lugares.length?j.lugares.map((l,i)=>`<button type="button" data-i="${i}">${esc(l.nombre)} <span>${esc(l.estado)}</span></button>`).join(''):'<div style="padding:10px">Sin resultados. Prueba con otro nombre.</div>';
-        box._list=j.lugares;box.hidden=false;
+        if(inp.value.trim()!==q)return;              // el usuario siguió escribiendo
+        list=j.lugares;
+        box.innerHTML=list.length?list.map((l,i)=>`<button type="button" data-i="${i}">${esc(l.nombre)} <span>${esc(l.estado)}</span></button>`).join(''):'<div style="padding:10px">Sin resultados. Prueba con otro nombre.</div>';
+        box.hidden=false;
       }catch(e){if(e.name!=='AbortError'){box.innerHTML=`<div style="padding:10px">${esc(e.message||'No se pudo buscar.')}</div>`;box.hidden=false}}
-    },300);
+    },250);
   });
-  box.addEventListener('click',e=>{
-    const b=e.target.closest('button');if(!b)return;
-    const l=box._list[+b.dataset.i];S[key]=l;inp.value=l.nombre;picked.textContent='✓ '+l.nombre+(l.estado?', '+l.estado:'');box.hidden=true;
-    updateSign();
+  // Elegir al soltar el dedo o el botón del mouse (si no se deslizó la lista); mientras se toca, la lista no se cierra
+  let downY=null,pressing=false;
+  box.addEventListener('pointerdown',e=>{pressing=true;downY=e.clientY;if(e.pointerType==='mouse')e.preventDefault()});
+  box.addEventListener('pointerup',e=>{
+    pressing=false;const b=e.target.closest('button');
+    if(!b||downY===null||Math.abs(e.clientY-downY)>10)return;
+    const l=list[+b.dataset.i];if(l)choose(l);
   });
-  inp.addEventListener('blur',()=>setTimeout(()=>box.hidden=true,200));
+  box.addEventListener('pointercancel',()=>{pressing=false});
+  box.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!S[key]){const l=list[+b.dataset.i];if(l)choose(l)}});
+  // Enter elige la primera opción
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&list.length&&!box.hidden){e.preventDefault();choose(list[0])}});
+  // Al salir del campo: si lo escrito coincide con una opción, se elige sola
+  inp.addEventListener('blur',()=>setTimeout(()=>{
+    if(pressing)return;
+    if(!S[key]&&list.length){
+      const q=inp.value.trim().toLowerCase();
+      const m=list.find(l=>l.nombre.toLowerCase()===q)||list.find(l=>l.nombre.toLowerCase().split(',')[0].trim()===q);
+      if(m)choose(m);
+    }
+    close();
+  },300));
+  inp.addEventListener('focus',()=>{if(!S[key]&&list.length&&inp.value.trim().length>=3)box.hidden=false});
 }
 setupPlace('from');setupPlace('to');setupPlace('via');
 function updateSign(){$('signRoute').textContent=`${S.from?S.from.nombre:'Origen'} → ${S.to?S.to.nombre:'Destino'}`}
