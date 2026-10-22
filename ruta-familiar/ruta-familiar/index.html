@@ -184,6 +184,8 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
 
       <section class="step">
         <div class="step-h"><span class="step-n">5</span><h2>Gastos extra</h2></div>
+        <label class="check" for="extrasOn"><input id="extrasOn" type="checkbox" checked> Incluir gastos extra en el total</label>
+        <div id="extrasFields">
         <div class="fields">
           <label class="f" for="meal">Comida por persona ($)<input id="meal" type="number" min="0" value="180" inputmode="numeric"></label>
           <label class="f" for="meals">Comidas en el camino<input id="meals" type="number" min="0" value="2" inputmode="numeric"></label>
@@ -192,6 +194,7 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
           <label class="f" for="other">Otros ($)<input id="other" type="number" min="0" value="0" inputmode="numeric"></label>
         </div>
         <div id="extraBox"></div>
+        </div>
       </section>
       <p class="foot">Rutas, distancias y casetas: API de Ruteo del INEGI, Red Nacional de Caminos. El INEGI actualiza las tarifas una vez al año, por lo que pueden diferir de las vigentes. Rendimientos: Catálogo de Rendimiento de Combustible 2026 del Gobierno de México. Verifica antes de salir.</p>
     </main>
@@ -371,26 +374,32 @@ $('calc').addEventListener('click',async()=>{
   if(!S.from||!S.to){msg.className='msg err';msg.textContent='Elige el origen y el destino de la lista de sugerencias.';msg.hidden=false;return}
   const useVia=!!(S.via&&$('via').value.trim());
   const base=`/api/ruta?o=${S.from.id}&d=${S.to.id}&v=${$('vclass').value}`+(useVia?`&p=${S.via.id}&pn=${encodeURIComponent(S.via.nombre)}`:'');
-  const jobs=useVia?[['cuota',0],['libre',0],['cuota',1],['libre',1]]:[['cuota',0],['libre',0],['optima',0]];
+  const jobs=useVia?[['cuota',0],['libre',0],['cuota',1],['libre',1]]:[['cuota',0],['libre',0]];
   $('calc').disabled=true;$('calc').textContent='Calculando…';msg.className='msg';msg.hidden=false;
   S.routes=[];S.sel=0;$('cards').innerHTML='';$('detail').innerHTML='';
-  const seen=new Set();let fails=0,lastErr='';
-  for(let k=0;k<jobs.length;k++){
-    const [t,via]=jobs[k];
-    msg.textContent=`Consultando rutas y casetas en el INEGI (${k+1} de ${jobs.length})…`;
-    try{
-      const j=await getJSON(`${base}&t=${t}${via?'&via=1':''}`);
-      const r=j.ruta,firma=`${Math.round(r.km)}-${Math.round(r.totalCasetas)}`;
-      if(seen.has(firma))continue;seen.add(firma);
-      S.routes.push(r);drawMap();recalc();
-    }catch(e){if(e.status!==404){fails++;lastErr=e.message}}
-  }
+  const seen=new Set();let fails=0,lastErr='',done=0;
+  const run=async([t,via])=>{
+    const url=`${base}&t=${t}${via?'&via=1':''}`;
+    for(let intento=0;intento<2;intento++){
+      try{
+        const j=await getJSON(url),r=j.ruta,firma=`${Math.round(r.km)}-${Math.round(r.totalCasetas)}`;
+        if(!seen.has(firma)){seen.add(firma);S.routes.push(r);S.routes.sort((a,b)=>a.minutos-b.minutos);drawMap();recalc()}
+        return;
+      }catch(e){if(e.status===404)return;lastErr=e.message}
+    }
+    fails++;
+  };
+  const queue=jobs.slice();
+  const worker=async()=>{while(queue.length){await run(queue.shift());done++;msg.textContent=`Consultando rutas y casetas en el INEGI (${done} de ${jobs.length})…`}};
+  msg.textContent=`Consultando rutas y casetas en el INEGI (0 de ${jobs.length})…`;
+  await Promise.all([worker(),worker()]);
   if(!S.routes.length){msg.className='msg err';msg.textContent=lastErr||'El INEGI no encontró una ruta entre esos lugares.'}
   else if(fails){msg.className='msg';msg.textContent=`Se calcularon ${S.routes.length} ruta${S.routes.length===1?'':'s'}; ${fails} no respondió. Puedes intentar de nuevo.`}
   else msg.hidden=true;
   $('calc').disabled=false;$('calc').textContent='Calcular rutas';
 });
 $('cards').addEventListener('click',e=>{const b=e.target.closest('[data-pick]');if(!b)return;selectRoute(+b.dataset.pick)});
+$('extrasOn').addEventListener('change',()=>{const on=$('extrasOn').checked;$('extrasFields').style.opacity=on?1:.45;$('extrasFields').querySelectorAll('input').forEach(i=>i.disabled=!on);recalc()});
 document.querySelectorAll('#pax,#families,#round,#buffer,#meal,#meals,#snacks,#hotel,#other').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',recalc));
 
 function calc(r){
@@ -398,8 +407,9 @@ function calc(r){
   const liters=r.km/kml*($('buffer').checked?1.1:1)*mult;
   const fuel=liters*n($('fprice').value);
   const tolls=r.totalCasetas*mult;
-  const meals=n($('meal').value)*pax*n($('meals').value);
-  const extras=meals+n($('snacks').value)+n($('hotel').value)+n($('other').value);
+  const on=$('extrasOn').checked;
+  const meals=on?n($('meal').value)*pax*n($('meals').value):0;
+  const extras=on?meals+n($('snacks').value)+n($('hotel').value)+n($('other').value):0;
   const total=fuel+tolls+extras,hours=r.minutos/60;
   return{mult,pax,liters,fuel,tolls,meals,extras,total,hours,stops:Math.max(0,Math.ceil(hours/2.5)-1),perFam:total/Math.max(1,n($('families').value)),perPax:total/pax};
 }
@@ -420,6 +430,7 @@ function recalc(){
   const fuelName=FUELS[$('fuel').value][0];
   $('fuelSec').hidden=false;
   const pxN=Math.max(1,n($('pax').value)),mlN=n($('meals').value),mpp=n($('meal').value);
+  if(!$('extrasOn').checked){$('extraBox').innerHTML='<p class="hint">Los gastos extra están desactivados: no se suman al total. Tus datos se conservan.</p>'}else
   $('extraBox').innerHTML=`<table class="tl num">
     <tr><td>Comidas<br><span class="hint">${money.format(mpp)} × ${pxN} persona${pxN===1?'':'s'} × ${mlN} comida${mlN===1?'':'s'}</span></td><td>${money.format(c.meals)}</td></tr>
     <tr><td>Botanas y bebidas</td><td>${money.format(n($('snacks').value))}</td></tr>
