@@ -55,17 +55,37 @@ async function tramo(t, params) {
         lat: c ? num(c[1]) : null,
       };
     });
-  const totalDetalle = casetas.reduce((a, c) => a + c.costo, 0);
+  const unicas = sinRepetidas(casetas);
+  const totalDetalle = unicas.reduce((a, c) => a + c.costo, 0);
   return {
     tipo: t.tipo,
     nombre: t.nombre,
     km: num(r.long_km),
     minutos: num(r.tiempo_min),
-    casetas,
-    totalCasetas: num(r.costo_caseta) || totalDetalle,
+    casetas: unicas,
+    // Si quitamos repetidas, el total se recalcula con la lista limpia
+    totalCasetas: unicas.length < casetas.length ? totalDetalle : num(r.costo_caseta) || totalDetalle,
     advertencia: r.advertencia || '',
     trazo: geo(r.geojson),
   };
+}
+
+// Distancia aproximada en km entre dos casetas
+function km(a, b) {
+  if (a.lat == null || b.lat == null) return Infinity;
+  const r = Math.PI / 180, x = (b.lon - a.lon) * r * Math.cos(((a.lat + b.lat) / 2) * r), y = (b.lat - a.lat) * r;
+  return 6371 * Math.hypot(x, y);
+}
+const clave = (c) => c.nombre.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
+
+// Quita casetas repetidas: mismo nombre, o mismo precio a menos de 3 km (pasa al unir dos tramos)
+function sinRepetidas(lista) {
+  const out = [];
+  for (const c of lista) {
+    const dup = out.some((o) => clave(o) === clave(c) || (o.costo === c.costo && km(o, c) < 3));
+    if (!dup) out.push(c);
+  }
+  return out;
 }
 
 // Calcula una ruta directa, o en dos tramos si hay un punto intermedio (origen → parada → destino)
@@ -76,13 +96,14 @@ async function calcular(t, o, d, v, parada) {
     tramo(t, { dest_i: parada.id, dest_f: d, v }),
   ]);
   if (!a.km || !b.km) return { ...a, km: 0 };
+  const unidas = sinRepetidas([...a.casetas, ...b.casetas]);
   return {
     tipo: t.tipo + '-via',
-    nombre: `${t.nombre} pasando por ${parada.nombre}`,
+    nombre: `${t.nombre} pasando por ${String(parada.nombre).split(',')[0].trim()}`,
     km: a.km + b.km,
     minutos: a.minutos + b.minutos,
-    casetas: [...a.casetas, ...b.casetas],
-    totalCasetas: a.totalCasetas + b.totalCasetas,
+    casetas: unidas,
+    totalCasetas: unidas.reduce((s, c) => s + c.costo, 0),
     advertencia: [a.advertencia, b.advertencia].filter(Boolean).join(' '),
     trazo: { type: 'GeometryCollection', geometries: [a.trazo, b.trazo].filter(Boolean) },
   };
