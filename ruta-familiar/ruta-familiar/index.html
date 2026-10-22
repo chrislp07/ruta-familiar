@@ -9,6 +9,8 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Overpass:wght@600;800&display=swap">
 <style>
 :root{
@@ -74,6 +76,9 @@ button:disabled{opacity:.6;cursor:wait}
 table.tl{width:100%;border-collapse:collapse;font-size:.95rem}
 table.tl td{padding:8px 4px;border-bottom:1px solid var(--line)}
 table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
+#map{height:360px;border-radius:var(--r);border:1px solid var(--line);z-index:0}
+@media (max-width:620px){#map{height:300px}}
+.toll-ico{background:var(--amber);color:var(--amber-ink);border:2px solid #fff;border-radius:6px;font:700 11px/1 var(--body);padding:3px 5px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 .msg{border-radius:8px;padding:12px;background:var(--soft)}
 .msg.err{background:var(--bad);color:#fff}
 .sum{background:var(--surface);border:2px solid var(--sign);border-radius:var(--r);overflow:hidden}
@@ -154,12 +159,19 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
         <div class="step-h"><span class="step-n">3</span><h2>Rutas y casetas</h2></div>
         <div class="row"><button type="button" class="btn-main" id="calc">Calcular rutas</button></div>
         <div id="routeMsg" class="msg" hidden></div>
+        <div id="map" hidden aria-label="Mapa de rutas: toca una ruta para elegirla"></div>
+        <p class="hint" id="mapHint" hidden>Toca una ruta en el mapa o en las tarjetas para elegirla. Los cuadros amarillos son las casetas.</p>
         <div class="cards" id="cards"></div>
         <div id="detail"></div>
       </section>
 
+      <section class="step" id="fuelSec" hidden>
+        <div class="step-h"><span class="step-n">4</span><h2>Gasolina</h2></div>
+        <div id="fuelBox"></div>
+      </section>
+
       <section class="step">
-        <div class="step-h"><span class="step-n">4</span><h2>Gastos extra</h2></div>
+        <div class="step-h"><span class="step-n">5</span><h2>Gastos extra</h2></div>
         <div class="fields">
           <label class="f" for="meal">Comida por persona ($)<input id="meal" type="number" min="0" value="180" inputmode="numeric"></label>
           <label class="f" for="meals">Comidas en el camino<input id="meals" type="number" min="0" value="2" inputmode="numeric"></label>
@@ -278,6 +290,44 @@ $('fuel').addEventListener('change',()=>{$('fprice').value=S.prices[$('fuel').va
 $('fprice').addEventListener('input',()=>{S.prices[$('fuel').value]=n($('fprice').value);recalc()});
 fetch('/vehiculos.json').then(r=>r.json()).then(d=>{CAT=Array.isArray(d)?d:[];fillMarcas();if(!CAT.length){$('marca').value='__otro';$('marca').dispatchEvent(new Event('change'))}}).catch(()=>{fillMarcas();$('marca').value='__otro';$('marca').dispatchEvent(new Event('change'))});
 
+
+// ---------- Mapa ----------
+let MAP=null,LAYERS=[],TOLLS=null;
+const ROUTE_COLORS=['#0b6b3a','#1f4e9b','#8a4fbf'];
+function selectRoute(i){S.sel=i;styleRoutes();recalc()}
+function drawMap(){
+  if(!window.L){return}
+  $('map').hidden=false;$('mapHint').hidden=false;
+  if(!MAP){
+    MAP=L.map('map',{scrollWheelZoom:false});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'&copy; OpenStreetMap'}).addTo(MAP);
+  }
+  LAYERS.forEach(l=>MAP.removeLayer(l));LAYERS=[];
+  const all=[];
+  S.routes.forEach((r,i)=>{
+    if(!r.trazo)return;
+    const lay=L.geoJSON(r.trazo,{style:()=>({weight:6,opacity:.9})});
+    lay.on('click',()=>selectRoute(i));
+    lay.bindTooltip(`${r.nombre} · ${Math.round(r.km)} km`,{sticky:true});
+    lay.addTo(MAP);LAYERS[i]=lay;all.push(lay);
+  });
+  if(all.length){MAP.fitBounds(L.featureGroup(all).getBounds(),{padding:[24,24]})}
+  else{$('map').hidden=true;$('mapHint').hidden=true}
+  setTimeout(()=>MAP.invalidateSize(),50);
+  styleRoutes();
+}
+function styleRoutes(){
+  if(!MAP)return;
+  LAYERS.forEach((lay,i)=>{if(!lay)return;const on=i===S.sel;
+    lay.setStyle({color:on?ROUTE_COLORS[0]:'#8b9a90',weight:on?7:5,opacity:on?.95:.7,dashArray:on?null:'6 8'});
+    if(on)lay.bringToFront();});
+  if(TOLLS)MAP.removeLayer(TOLLS);
+  const r=S.routes[S.sel];
+  TOLLS=L.layerGroup((r&&r.casetas||[]).filter(c=>c.lat&&c.lon).map(c=>
+    L.marker([c.lat,c.lon],{icon:L.divIcon({className:'',html:`<span class="toll-ico">${money.format(c.costo)}</span>`,iconSize:null})}).bindPopup(`<b>${esc(c.nombre)}</b><br>${money.format(c.costo)}`)
+  )).addTo(MAP);
+}
+
 // ---------- Rutas ----------
 $('calc').addEventListener('click',async()=>{
   const msg=$('routeMsg');
@@ -286,11 +336,11 @@ $('calc').addEventListener('click',async()=>{
   try{
     const r=await fetch(`/api/ruta?o=${S.from.id}&d=${S.to.id}&v=${$('vclass').value}`);
     const j=await r.json();if(!r.ok)throw new Error(j.error);
-    S.routes=j.rutas;S.sel=0;msg.hidden=true;recalc();
+    S.routes=j.rutas;S.sel=0;msg.hidden=true;drawMap();recalc();
   }catch(e){msg.className='msg err';msg.textContent=e.message||'No se pudo calcular la ruta. Intenta de nuevo.'}
   finally{$('calc').disabled=false;$('calc').textContent='Calcular rutas'}
 });
-$('cards').addEventListener('click',e=>{const b=e.target.closest('[data-pick]');if(!b)return;S.sel=+b.dataset.pick;recalc()});
+$('cards').addEventListener('click',e=>{const b=e.target.closest('[data-pick]');if(!b)return;selectRoute(+b.dataset.pick)});
 document.querySelectorAll('#pax,#families,#round,#buffer,#meal,#meals,#snacks,#hotel,#other').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',recalc));
 
 function calc(r){
@@ -311,12 +361,22 @@ function recalc(){
   const cheap=S.routes.length>1?cs.reduce((a,c,i)=>c.total<cs[a].total?i:a,0):-1;
   const fast=S.routes.length>1?S.routes.reduce((a,r,i)=>r.minutos<S.routes[a].minutos?i:a,0):-1;
   $('cards').innerHTML=S.routes.map((r,i)=>`<button type="button" class="rcard" data-pick="${i}" aria-pressed="${i===S.sel}">
-    <span class="name">${esc(r.nombre)}</span><span class="tot num">${money.format(cs[i].total)}</span>
+    <span class="name">${esc(r.nombre)}</span><span class="meta">Casetas${cs[i].mult>1?' (ida y vuelta)':''}</span><span class="tot num">${money.format(cs[i].tolls)}</span>
     <span class="meta num">${Math.round(r.km)} km · ${hm(r.minutos/60)} · ${r.casetas.length} caseta${r.casetas.length===1?'':'s'}</span>
-    <span class="tags">${i===cheap?'<span class="pill cheap">Más barata</span>':''}${i===fast?'<span class="pill fast">Más rápida</span>':''}</span></button>`).join('');
+    <span class="meta num">Gasolina aprox.: ${money.format(cs[i].fuel)}</span><span class="tags">${i===cheap?'<span class="pill cheap">Más barata en total</span>':''}${i===fast?'<span class="pill fast">Más rápida</span>':''}</span></button>`).join('');
   const r=S.routes[S.sel],c=cs[S.sel];
-  $('detail').innerHTML=r.casetas.length?`<h3 style="font-size:1rem;margin-bottom:6px">Casetas de “${esc(r.nombre)}” (solo ida)</h3><table class="tl num">${r.casetas.map(k=>`<tr><td>${esc(k.nombre)}</td><td>${money.format(k.costo)}</td></tr>`).join('')}<tr><td><b>Total por trayecto</b></td><td>${money.format(r.totalCasetas)}</td></tr></table>`:'<p class="hint">Esta ruta no tiene casetas.</p>';
+  $('detail').innerHTML=r.casetas.length?`<h3 style="font-size:1rem;margin-bottom:6px">Casetas de “${esc(r.nombre)}” (solo ida)</h3><table class="tl num">${r.casetas.map(k=>`<tr><td>${esc(k.nombre)}</td><td>${money.format(k.costo)}</td></tr>`).join('')}<tr><td><b>Total por trayecto</b></td><td>${money.format(r.totalCasetas)}</td></tr>${c.mult>1?`<tr><td><b>Ida y vuelta</b></td><td>${money.format(c.tolls)}</td></tr>`:''}</table>`:'<p class="hint">Esta ruta no tiene casetas.</p>';
   const fuelName=FUELS[$('fuel').value][0];
+  $('fuelSec').hidden=false;
+  const vname=S.veh?`${S.veh.marca} ${S.veh.modelo}, ${S.veh.version}`:'Vehículo genérico';
+  $('fuelBox').innerHTML=`<table class="tl num">
+    <tr><td>Ruta</td><td>${esc(r.nombre)}</td></tr>
+    <tr><td>Distancia${c.mult>1?' (ida y vuelta)':''}</td><td>${Math.round(r.km*c.mult)} km</td></tr>
+    <tr><td>Rendimiento usado<br><span class="hint">${esc(vname)}</span></td><td>${(S.kml||0).toFixed(1)} km/L</td></tr>
+    ${$('buffer').checked?'<tr><td>Margen por aire acondicionado, subidas y auto lleno</td><td>+10%</td></tr>':''}
+    <tr><td>Litros necesarios</td><td>${c.liters.toFixed(1)} L de ${fuelName}</td></tr>
+    <tr><td>Precio por litro</td><td>$${n($('fprice').value).toFixed(2)}</td></tr>
+    <tr><td><b>Total de gasolina</b></td><td>${money.format(c.fuel)}</td></tr></table>`;
   $('sumRoute').textContent=`${r.nombre} · ${$('round').checked?'ida y vuelta':'solo ida'}`;
   $('sumTotal').textContent=money.format(c.total);
   $('sumSplit').textContent=n($('families').value)>1?`${money.format(c.perFam)} por familia · ${money.format(c.perPax)} por persona`:`${money.format(c.perPax)} por persona`;
