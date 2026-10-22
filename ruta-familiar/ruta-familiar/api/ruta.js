@@ -99,6 +99,21 @@ module.exports = async (req, res) => {
   const plan = parada
     ? [[TIPOS[0], null], [TIPOS[1], null], [TIPOS[0], parada], [TIPOS[1], parada]]
     : TIPOS.map((t) => [t, null]);
+  // Modo de una sola ruta: &t=cuota|libre|optima (y &via=1 para pasar por la parada).
+  // La app pide cada ruta por separado para que ninguna consulta rebase el tiempo límite del servidor.
+  if (q.t) {
+    const t = TIPOS.find((x) => x.tipo === String(q.t));
+    if (!t) return res.status(400).json({ error: 'Tipo de ruta no válido.' });
+    const via = String(q.via || '') === '1' ? parada : null;
+    try {
+      const r = await calcular(t, o, d, v, via);
+      if (!r.km) return res.status(404).json({ error: 'Sin ruta de este tipo.' });
+      if (!debug) res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
+      return res.status(200).json({ ruta: r });
+    } catch (e) {
+      return res.status(e.status || 500).json({ error: e.message || 'No se pudo calcular la ruta.' });
+    }
+  }
   const rutas = [];
   const errores = [];
   const vistas = new Set();
