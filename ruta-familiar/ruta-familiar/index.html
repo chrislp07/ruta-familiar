@@ -360,17 +360,35 @@ function styleRoutes(){
 }
 
 // ---------- Rutas ----------
+async function getJSON(url){
+  const r=await fetch(url);let j=null;
+  try{j=await r.json()}catch(e){throw new Error('El servidor tardó demasiado en responder. Intenta de nuevo en un momento.')}
+  if(!r.ok){const e=new Error(j&&j.error||'No se pudo calcular la ruta.');e.status=r.status;throw e}
+  return j;
+}
 $('calc').addEventListener('click',async()=>{
   const msg=$('routeMsg');
   if(!S.from||!S.to){msg.className='msg err';msg.textContent='Elige el origen y el destino de la lista de sugerencias.';msg.hidden=false;return}
-  $('calc').disabled=true;$('calc').textContent='Calculando…';msg.className='msg';msg.textContent=S.via&&$('via').value.trim()?'Consultando rutas y casetas en el INEGI, incluida la que pasa por '+S.via.nombre+'…':'Consultando rutas y casetas en el INEGI…';msg.hidden=false;
-  try{
-    const via=S.via&&$('via').value.trim()?`&p=${S.via.id}&pn=${encodeURIComponent(S.via.nombre)}`:'';
-    const r=await fetch(`/api/ruta?o=${S.from.id}&d=${S.to.id}&v=${$('vclass').value}${via}`);
-    const j=await r.json();if(!r.ok)throw new Error(j.error);
-    S.routes=j.rutas;S.sel=0;msg.hidden=true;drawMap();recalc();
-  }catch(e){msg.className='msg err';msg.textContent=e.message||'No se pudo calcular la ruta. Intenta de nuevo.'}
-  finally{$('calc').disabled=false;$('calc').textContent='Calcular rutas'}
+  const useVia=!!(S.via&&$('via').value.trim());
+  const base=`/api/ruta?o=${S.from.id}&d=${S.to.id}&v=${$('vclass').value}`+(useVia?`&p=${S.via.id}&pn=${encodeURIComponent(S.via.nombre)}`:'');
+  const jobs=useVia?[['cuota',0],['libre',0],['cuota',1],['libre',1]]:[['cuota',0],['libre',0],['optima',0]];
+  $('calc').disabled=true;$('calc').textContent='Calculando…';msg.className='msg';msg.hidden=false;
+  S.routes=[];S.sel=0;$('cards').innerHTML='';$('detail').innerHTML='';
+  const seen=new Set();let fails=0,lastErr='';
+  for(let k=0;k<jobs.length;k++){
+    const [t,via]=jobs[k];
+    msg.textContent=`Consultando rutas y casetas en el INEGI (${k+1} de ${jobs.length})…`;
+    try{
+      const j=await getJSON(`${base}&t=${t}${via?'&via=1':''}`);
+      const r=j.ruta,firma=`${Math.round(r.km)}-${Math.round(r.totalCasetas)}`;
+      if(seen.has(firma))continue;seen.add(firma);
+      S.routes.push(r);drawMap();recalc();
+    }catch(e){if(e.status!==404){fails++;lastErr=e.message}}
+  }
+  if(!S.routes.length){msg.className='msg err';msg.textContent=lastErr||'El INEGI no encontró una ruta entre esos lugares.'}
+  else if(fails){msg.className='msg';msg.textContent=`Se calcularon ${S.routes.length} ruta${S.routes.length===1?'':'s'}; ${fails} no respondió. Puedes intentar de nuevo.`}
+  else msg.hidden=true;
+  $('calc').disabled=false;$('calc').textContent='Calcular rutas';
 });
 $('cards').addEventListener('click',e=>{const b=e.target.closest('[data-pick]');if(!b)return;selectRoute(+b.dataset.pick)});
 document.querySelectorAll('#pax,#families,#round,#buffer,#meal,#meals,#snacks,#hotel,#other').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',recalc));
