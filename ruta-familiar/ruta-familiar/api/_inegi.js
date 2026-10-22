@@ -21,8 +21,27 @@ async function inegi(endpoint, params) {
     err.status = 502;
     throw err;
   }
-  const json = await res.json();
+  const json = JSON.parse(texto(Buffer.from(await res.arrayBuffer())));
   return json && json.data !== undefined ? json.data : json;
+}
+
+// El INEGI a veces responde en Latin-1 (ISO-8859-1) y no en UTF-8: "Cancún" llegaba como "Canc�n".
+// Se intenta UTF-8 estricto; si falla, se lee como Windows-1252. También se reparan textos con doble
+// codificación ("CancÃºn").
+function texto(buf) {
+  let t;
+  try {
+    t = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch {
+    t = new TextDecoder('windows-1252').decode(buf);
+  }
+  if (/Ã[\u0080-\u00BF]|Â[\u0080-\u00BF]/.test(t)) {
+    try {
+      const r = Buffer.from(t, 'latin1').toString('utf8');
+      if (!r.includes('\uFFFD')) t = r;
+    } catch {}
+  }
+  return t;
 }
 
 const num = (v) => {
