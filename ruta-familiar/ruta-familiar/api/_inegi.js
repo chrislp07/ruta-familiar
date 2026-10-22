@@ -14,6 +14,7 @@ async function inegi(endpoint, params) {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
+    signal: AbortSignal.timeout(12000), // si el INEGI se traba, se corta y se reintenta
   });
   if (!res.ok) {
     const err = new Error(`El INEGI respondió con error ${res.status}.`);

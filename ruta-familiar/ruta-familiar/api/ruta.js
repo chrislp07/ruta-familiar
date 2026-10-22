@@ -37,8 +37,10 @@ function limpiarNombre(dir) {
 }
 
 async function tramo(t, params) {
-  const resumen = await consulta(t.ruta, params);
-  const detalle = await consulta(t.detalle, params).catch(() => []);
+  const [resumen, detalle] = await Promise.all([
+    consulta(t.ruta, params),
+    consulta(t.detalle, params).catch(() => []),
+  ]);
   const r = Array.isArray(resumen) ? resumen[0] || {} : resumen || {};
   const tramos = Array.isArray(detalle) ? detalle : [];
   const casetas = tramos
@@ -69,8 +71,10 @@ async function tramo(t, params) {
 // Calcula una ruta directa, o en dos tramos si hay un punto intermedio (origen → parada → destino)
 async function calcular(t, o, d, v, parada) {
   if (!parada) return tramo(t, { dest_i: o, dest_f: d, v });
-  const a = await tramo(t, { dest_i: o, dest_f: parada.id, v });
-  const b = await tramo(t, { dest_i: parada.id, dest_f: d, v });
+  const [a, b] = await Promise.all([
+    tramo(t, { dest_i: o, dest_f: parada.id, v }),
+    tramo(t, { dest_i: parada.id, dest_f: d, v }),
+  ]);
   if (!a.km || !b.km) return { ...a, km: 0 };
   return {
     tipo: t.tipo + '-via',
