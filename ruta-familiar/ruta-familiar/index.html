@@ -16,19 +16,22 @@
 :root{
   --bg:#f3f6f3; --surface:#ffffff; --soft:#e6eee8; --ink:#16231b; --muted:#56685d; --line:#d3ddd6;
   --sign:#0b6b3a; --sign-ink:#ffffff; --amber:#f2b705; --amber-ink:#2b2300; --blue:#1f4e9b;
-  --good:#1b7a44; --warn:#8f6400; --bad:#b3261e;
+  --good:#1b7a44; --warn:#8f6400; --bad:#b3261e; --bad-bg:#fbe9e7; --bad-ink:#8c1d18; --paper:#ffffff; --paper-edge:#d3ddd6;
   --display:"Overpass","Arial Narrow",Arial,sans-serif;
   --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
   --r:10px; color-scheme:light;
 }
 @media (prefers-color-scheme: dark){:root{
   --bg:#0e1411; --surface:#17201b; --soft:#1e2a23; --ink:#e5eee8; --muted:#9bb0a2; --line:#2a3830;
-  --sign:#16804a; --amber:#f5c33b; --blue:#86acf0; --good:#4cc283; --warn:#e8b54a; --bad:#ff8a80; color-scheme:dark }}
+  --sign:#16804a; --amber:#f5c33b; --blue:#86acf0; --good:#4cc283; --warn:#e8b54a; --bad:#ff8a80; --bad-bg:#3a1714; --bad-ink:#ffd9d4; --paper:#1c2620; --paper-edge:#2a3830; color-scheme:dark }}
 *{box-sizing:border-box}
 html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px}
 [hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip{position:absolute;left:12px;top:-60px;background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:8px;z-index:50;font-weight:700}
+.skip:focus{top:12px}
 .app{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
 h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
 .num{font-variant-numeric:tabular-nums}
@@ -38,7 +41,7 @@ h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
 .sign p{margin:4px 0 0;font-size:.95rem;opacity:.92}
 .sign .km{font-family:var(--display);font-weight:800;font-size:1.05rem;border:2px solid var(--sign-ink);border-radius:8px;padding:6px 10px}
 .grid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}
-@media (min-width:900px){.grid{grid-template-columns:minmax(0,1fr) 370px}.aside{position:sticky;top:12px}}
+@media (min-width:900px){.grid{grid-template-columns:minmax(0,1fr) 370px}.aside{position:sticky;top:24px}}
 .steps{display:flex;flex-direction:column;gap:16px;min-width:0}
 .step{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .step-h{display:flex;align-items:center;gap:10px}
@@ -46,7 +49,7 @@ h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
 .step-h h2{font-size:1.25rem;font-weight:800}
 .hint{color:var(--muted);font-size:.9rem;margin:0}
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-label.f,.f{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted);font-weight:700;min-width:0;position:relative}
+label.f,.f,fieldset.f{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted);font-weight:700;min-width:0;position:relative}
 input,select{font:inherit;font-size:1rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;width:100%;min-width:0}
 input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .check{display:flex;align-items:center;gap:10px;font-weight:700;font-size:.95rem;min-height:44px}
@@ -57,8 +60,11 @@ button:disabled{opacity:.6;cursor:wait}
 .row{display:flex;flex-wrap:wrap;gap:8px}
 .pair{display:flex;flex-direction:column;gap:6px}
 .txt{position:relative}
-.linkbtn{background:none;border:0;padding:2px 0;min-height:0;color:var(--blue);font-weight:700;font-size:.85rem;justify-content:flex-start;text-decoration:underline;cursor:pointer}
-.place{grid-column:span 1}
+.linkbtn{background:none;border:0;padding:4px 0;min-height:44px;color:var(--blue);font-weight:700;font-size:.85rem;justify-content:flex-start;text-decoration:underline;cursor:pointer}
+fieldset.place{border:0;margin:0;padding:0;min-inline-size:0}
+fieldset.place legend{padding:0;margin-bottom:4px;font-size:.85rem;color:var(--muted);font-weight:700}
+.places{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.pair label{display:flex;flex-direction:column;gap:2px;font-size:.78rem;color:var(--muted);font-weight:400}
 .sugg{position:absolute;top:100%;left:0;right:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-top:4px;max-height:260px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.15);font-weight:400;color:var(--ink)}
 .sugg button{display:flex;width:100%;justify-content:space-between;border:0;border-radius:0;border-bottom:1px solid var(--line);text-align:left;font-weight:400}
 .sugg button span{color:var(--muted);font-size:.85rem}
@@ -66,7 +72,7 @@ button:disabled{opacity:.6;cursor:wait}
 .vinfo{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .vinfo div{background:var(--soft);border-radius:8px;padding:8px 10px}
 .vinfo b{display:block;font-family:var(--display);font-size:1.3rem}
-.vinfo span{font-size:.78rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.vinfo span{font-size:.85rem;color:var(--muted);font-weight:700}
 .vinfo .use{outline:2px solid var(--sign)}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
 .rcard{text-align:left;display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:12px;border:2px solid var(--line);background:var(--bg)}
@@ -78,18 +84,26 @@ button:disabled{opacity:.6;cursor:wait}
 .pill{font-size:.75rem;font-weight:700;padding:3px 8px;border-radius:999px;border:1px solid currentColor}
 .pill.cheap{color:var(--good)} .pill.fast{color:var(--blue)}
 table.tl{width:100%;border-collapse:collapse;font-size:.95rem}
-table.tl td{padding:8px 4px;border-bottom:1px solid var(--line)}
+table.tl caption{text-align:left;font-family:var(--display);font-weight:800;font-size:1rem;padding-bottom:6px}
+table.tl th,table.tl td{padding:8px 4px;border-bottom:1px solid var(--line);text-align:left;font-weight:400;vertical-align:top}
+table.tl tr.tot th,table.tl tr.tot td{font-weight:700}
 table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
 #map{height:360px;border-radius:var(--r);border:1px solid var(--line);z-index:0}
 @media (max-width:620px){#map{height:300px}}
 .toll-ico{background:var(--amber);color:var(--amber-ink);border:2px solid #fff;border-radius:6px;font:700 11px/1 var(--body);padding:3px 5px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 .msg{border-radius:8px;padding:12px;background:var(--soft)}
-.msg.err{background:var(--bad);color:#fff}
-.sum{background:var(--surface);border:2px solid var(--sign);border-radius:var(--r);overflow:hidden}
-.sum-top{background:var(--sign);color:var(--sign-ink);padding:14px 16px}
-.sum-top .lbl{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;opacity:.9}
-.sum-top .big{font-family:var(--display);font-weight:800;font-size:2.6rem;line-height:1.05}
-.sum-body{padding:14px 16px;display:flex;flex-direction:column;gap:14px}
+.msg.err{background:var(--bad-bg);color:var(--bad-ink);border:1px solid var(--bad)}
+.sum{background:var(--paper);color:var(--ink);border-radius:4px 4px 10px 10px;position:relative;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px rgba(11,60,35,.12);margin-top:10px}
+/* Borde dentado de boleto de caseta */
+.sum::before{content:"";position:absolute;left:0;right:0;top:-10px;height:10px;
+  background:radial-gradient(circle at 8px 0,transparent 7px,var(--paper) 7.5px) 0 0/16px 10px repeat-x}
+.sum-top{padding:18px 18px 12px;border-bottom:2px dashed var(--line)}
+.sum-top .lbl{font-size:.9rem;color:var(--muted);font-weight:700}
+.sum-top h2{font-size:1.1rem;font-weight:800;margin-bottom:2px}
+.sum-top .big{font-family:var(--display);font-weight:800;font-size:clamp(2.2rem,8vw,2.8rem);line-height:1.05;margin-top:6px;letter-spacing:-.01em}
+.sum-top .split{color:var(--muted)}
+.sum-body{padding:14px 18px 18px;display:flex;flex-direction:column;gap:14px}
+.sum-empty{padding:18px;color:var(--muted)}
 .bar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--soft)}
 .c-toll{background:var(--sign)} .c-fuel{background:var(--amber)} .c-extra{background:var(--blue)}
 .lines{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
@@ -97,7 +111,7 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
 .lines li span:first-child{display:flex;align-items:center;gap:8px}
 .dot{width:10px;height:10px;border-radius:3px;flex:none}
 .lines .muted{color:var(--muted);font-size:.85rem}
-.lines .total{border-top:1px solid var(--line);padding-top:8px;font-weight:700}
+.lines .total{border-top:2px dashed var(--line);padding-top:8px;font-weight:700}
 .call{border-radius:8px;padding:10px 12px;font-size:.92rem}
 .call-tag{background:var(--amber);color:var(--amber-ink)}
 .call-info{background:var(--soft)}
@@ -105,10 +119,22 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
 .before ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:.92rem}
 .before a{color:var(--blue)}
 .toast{min-height:1.2em;font-size:.85rem;color:var(--good);font-weight:700}
-.foot{color:var(--muted);font-size:.82rem;max-width:75ch}
+.foot{color:var(--muted);font-size:.85rem;max-width:72ch}
+/* Barra inferior en celular */
+.mbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--sign);color:var(--sign-ink);
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -6px 20px rgba(0,0,0,.18)}
+.mbar .t{font-family:var(--display);font-weight:800;font-size:1.35rem;line-height:1.1}
+.mbar small{display:block;font-size:.8rem;opacity:.9}
+.mbar a{color:var(--sign);background:var(--sign-ink);border-radius:8px;padding:10px 14px;font-weight:700;text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
+@media (min-width:900px){.mbar{display:none!important}}
+@media (max-width:899px){body.has-total{padding-bottom:96px}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 </style>
 </head>
 <body>
+<a class="skip" href="#resumen">Saltar al resumen del viaje</a>
 <div class="app">
   <header class="sign"><div class="sign-in">
     <div><h1>Ruta Familiar</h1><p>Cuánto cuesta tu viaje antes de salir: casetas, gasolina y extras.</p></div>
@@ -119,43 +145,48 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
     <main class="steps">
       <section class="step">
         <div class="step-h"><span class="step-n">1</span><h2>El viaje</h2></div>
-        <div class="fields">
-          <div class="f place">Salimos de
+        <div class="places">
+          <fieldset class="f place">
+            <legend>Salimos de</legend>
             <div class="pair">
-              <select id="fromEdo" aria-label="Estado"></select>
-              <select id="fromCd" aria-label="Ciudad" disabled></select>
+              <label for="fromEdo">Estado<select id="fromEdo"></select></label>
+              <label for="fromCd">Ciudad<select id="fromCd" disabled></select></label>
             </div>
             <div id="fromTxt" class="txt" hidden>
               <input id="from" autocomplete="off" placeholder="Ej. Villahermosa" aria-label="Salimos de">
               <div class="sugg" id="fromSugg" hidden></div>
             </div>
             <button type="button" class="linkbtn" id="fromMode">Escribir otra ciudad</button>
-            <span class="picked" id="fromPicked"></span>
-          </div>
-          <div class="f place">Vamos a
+            <span class="picked" id="fromPicked" aria-live="polite"></span>
+          </fieldset>
+          <fieldset class="f place">
+            <legend>Vamos a</legend>
             <div class="pair">
-              <select id="toEdo" aria-label="Estado"></select>
-              <select id="toCd" aria-label="Ciudad" disabled></select>
+              <label for="toEdo">Estado<select id="toEdo"></select></label>
+              <label for="toCd">Ciudad<select id="toCd" disabled></select></label>
             </div>
             <div id="toTxt" class="txt" hidden>
               <input id="to" autocomplete="off" placeholder="Ej. Cancún" aria-label="Vamos a">
               <div class="sugg" id="toSugg" hidden></div>
             </div>
             <button type="button" class="linkbtn" id="toMode">Escribir otra ciudad</button>
-            <span class="picked" id="toPicked"></span>
-          </div>
-          <div class="f place">Pasar por (opcional)
+            <span class="picked" id="toPicked" aria-live="polite"></span>
+          </fieldset>
+          <fieldset class="f place">
+            <legend>Pasar por (opcional)</legend>
             <div class="pair">
-              <select id="viaEdo" aria-label="Estado"></select>
-              <select id="viaCd" aria-label="Ciudad" disabled></select>
+              <label for="viaEdo">Estado<select id="viaEdo"></select></label>
+              <label for="viaCd">Ciudad<select id="viaCd" disabled></select></label>
             </div>
             <div id="viaTxt" class="txt" hidden>
               <input id="via" autocomplete="off" placeholder="Ej. Macuspana" aria-label="Pasar por (opcional)">
               <div class="sugg" id="viaSugg" hidden></div>
             </div>
             <button type="button" class="linkbtn" id="viaMode">Escribir otra ciudad</button>
-            <span class="picked" id="viaPicked"></span>
-          </div>
+            <span class="picked" id="viaPicked" aria-live="polite"></span>
+          </fieldset>
+        </div>
+        <div class="fields">
           <label class="f" for="pax">Personas<input id="pax" type="number" min="1" value="4" inputmode="numeric"></label>
           <label class="f" for="families">Familias que pagan<input id="families" type="number" min="1" value="1" inputmode="numeric"></label>
         </div>
@@ -195,10 +226,10 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
       <section class="step">
         <div class="step-h"><span class="step-n">3</span><h2>Rutas y casetas</h2></div>
         <div class="row"><button type="button" class="btn-main" id="calc">Calcular rutas</button></div>
-        <div id="routeMsg" class="msg" hidden></div>
-        <div id="map" hidden aria-label="Mapa de rutas: toca una ruta para elegirla"></div>
+        <div id="routeMsg" class="msg" role="status" aria-live="polite" hidden></div>
+        <div id="map" role="region" hidden aria-label="Mapa de las rutas calculadas. También puedes elegir la ruta con las tarjetas de abajo."></div>
         <p class="hint" id="mapHint" hidden>Toca una ruta en el mapa o en las tarjetas para elegirla. Los cuadros amarillos son las casetas.</p>
-        <div class="cards" id="cards"></div>
+        <div class="cards" id="cards" role="group" aria-label="Rutas disponibles"></div>
         <div id="detail"></div>
       </section>
 
@@ -224,14 +255,16 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
       <p class="foot">Rutas, distancias y casetas: API de Ruteo del INEGI, Red Nacional de Caminos. El INEGI actualiza las tarifas una vez al año, por lo que pueden diferir de las vigentes. Rendimientos: Catálogo de Rendimiento de Combustible 2026 del Gobierno de México. Verifica antes de salir.</p>
     </main>
 
-    <aside class="aside">
+    <aside class="aside" id="resumen" aria-labelledby="sumTitle" tabindex="-1">
       <div class="sum">
         <div class="sum-top">
-          <div class="lbl" id="sumRoute">Calcula una ruta</div>
-          <div class="big num" id="sumTotal">$0</div>
-          <div class="num" id="sumSplit"></div>
+          <h2 id="sumTitle">Presupuesto del viaje</h2>
+          <div class="lbl" id="sumRoute">Aún no hay ruta calculada</div>
+          <div class="big num" id="sumTotal" hidden></div>
+          <div class="num split" id="sumSplit"></div>
         </div>
-        <div class="sum-body">
+        <p class="sum-empty" id="sumEmpty">Elige de dónde sales, a dónde vas y tu auto, y toca <b>Calcular rutas</b>. Aquí verás el total con casetas, gasolina y gastos extra.</p>
+        <div class="sum-body" id="sumBody" hidden>
           <div class="bar" aria-hidden="true"><span class="c-toll" id="bToll"></span><span class="c-fuel" id="bFuel"></span><span class="c-extra" id="bExtra"></span></div>
           <ul class="lines num" id="lines"></ul>
           <div class="call call-tag" id="tagCall" hidden></div>
@@ -252,6 +285,7 @@ table.tl td:last-child{text-align:right;white-space:nowrap;font-weight:700}
     </aside>
   </div>
 </div>
+<div class="mbar" id="mbar" hidden><div><small id="mbarRoute">Total del viaje</small><span class="t num" id="mbarTotal"></span></div><a href="#resumen">Ver desglose</a></div>
 
 <script>
 (function(){
@@ -270,7 +304,7 @@ function setupPlace(key){
   const close=()=>{box.hidden=true};
   const choose=l=>{
     clearTimeout(t);if(ctrl)ctrl.abort();          // evita que una búsqueda tardía cambie la lista
-    S[key]=l;inp.value=l.nombre;picked.textContent='✓ '+l.nombre+(l.estado?', '+l.estado:'');close();updateSign();
+    S[key]=l;inp.value=l.nombre;picked.innerHTML='<span aria-hidden="true">✓ </span>Elegido: '+esc(l.nombre)+(l.estado?', '+esc(l.estado):'');close();updateSign();
   };
   inp.addEventListener('input',()=>{
     S[key]=null;picked.textContent='';clearTimeout(t);
@@ -318,7 +352,7 @@ setupPlace('from');setupPlace('to');setupPlace('via');
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
 let EDOS=[];
 function setPicked(key,l){
-  S[key]=l;$(key+'Picked').textContent=l?'✓ '+l.nombre+(l.estado?', '+l.estado:''):'';updateSign();
+  S[key]=l;$(key+'Picked').innerHTML=l?'<span aria-hidden="true">✓ </span>Elegido: '+esc(l.nombre)+(l.estado?', '+esc(l.estado):''):'';updateSign();
 }
 function setupDropdown(key,optional){
   const edo=$(key+'Edo'),cd=$(key+'Cd'),mode=$(key+'Mode'),txt=$(key+'Txt'),pair=edo.parentNode;
@@ -336,13 +370,17 @@ function setupDropdown(key,optional){
     const e=EDOS[+edo.value],c=cd.value;if(!e||!c)return;
     $(key+'Picked').textContent='Ubicando '+c+'…';
     try{
-      const r=await fetch('/api/buscar?q='+encodeURIComponent(c));const j=await r.json();
+      // Se busca sin acentos (el INEGI los maneja de forma irregular) y se compara de forma tolerante
+      const sinAcentos=c.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      const r=await fetch('/api/buscar?q='+encodeURIComponent(sinAcentos));const j=await r.json();
       if(!r.ok)throw new Error(j.error);
       if(cd.value!==c)return;
-      const enEdo=j.lugares.filter(l=>e.abr.includes(norm(l.estado))||norm(l.estado).startsWith(e.abr[0]));
-      const pool=enEdo.length?enEdo:[];
-      const nc=norm(c);
-      const m=pool.find(l=>norm(l.nombre.split(',')[0])===nc)||pool.find(l=>norm(l.nombre).startsWith(nc))||pool[0];
+      const nc=norm(c),pref=nc.slice(0,4);
+      const nombreDe=l=>norm(String(l.nombre).split(',')[0]);
+      const delEdo=l=>{const a=norm(l.estado);return e.abr.includes(a)||e.abr.some(x=>a.startsWith(x)||x.startsWith(a))||norm(l.nombre).includes(norm(e.estado))};
+      const L=j.lugares||[],enEdo=L.filter(delEdo);
+      const m=enEdo.find(l=>nombreDe(l)===nc)||enEdo.find(l=>nombreDe(l).startsWith(nc))||enEdo.find(l=>nombreDe(l).startsWith(pref))||
+              L.find(l=>nombreDe(l)===nc)||enEdo[0];
       if(m)setPicked(key,m);
       else $(key+'Picked').textContent='No encontré '+c+'. Usa "Escribir otra ciudad".';
     }catch(err){$(key+'Picked').textContent='No se pudo ubicar la ciudad. Intenta de nuevo.'}
@@ -388,7 +426,7 @@ function pickVersion(){
   const v=CAT[+$('version').value];if(!v)return;S.veh=v;
   const use=v.carretera?'carretera':'combinado';
   S.kml=n(v[use]);
-  $('vinfo').innerHTML=['ciudad','carretera','combinado'].map(k=>`<div class="${k===use?'use':''}"><span>${k}</span><b>${v[k]?v[k]+' km/L':'—'}</b></div>`).join('');
+  $('vinfo').innerHTML=['ciudad','carretera','combinado'].map(k=>`<div class="${k===use?'use':''}"><span>${k[0].toUpperCase()+k.slice(1)}</span><b>${v[k]?v[k]+' km/L':'—'}</b></div>`).join('');
   $('vsrc').textContent=`Fuente: ${v.fuente||'dato oficial'} (modelo ${v.anio||''}). La app usa el rendimiento en ${use} para el viaje.`;
   $('vOfficial').hidden=false;
   if(v.combustible){const f=/di[eé]sel/i.test(v.combustible)?'diesel':(/premium/i.test(v.combustible)?'premium':'magna');$('fuel').value=f;$('fprice').value=S.prices[f]}
@@ -436,7 +474,7 @@ function drawMap(){
     if(!r.trazo)return;
     const lay=L.geoJSON(r.trazo,{style:()=>({weight:6,opacity:.9})});
     lay.on('click',()=>selectRoute(i));
-    lay.bindTooltip(`${r.nombre} · ${Math.round(r.km)} km`,{sticky:true});
+    lay.bindTooltip(`${r.nombre}, ${Math.round(r.km)} km`,{sticky:true});
     lay.addTo(MAP);LAYERS[i]=lay;all.push(lay);
   });
   if(all.length){MAP.fitBounds(L.featureGroup(all).getBounds(),{padding:[24,24]})}
@@ -465,11 +503,11 @@ async function getJSON(url){
 }
 $('calc').addEventListener('click',async()=>{
   const msg=$('routeMsg');
-  if(!S.from||!S.to){msg.className='msg err';msg.textContent='Elige el origen y el destino de la lista de sugerencias.';msg.hidden=false;return}
+  if(!S.from||!S.to){msg.className='msg err';msg.setAttribute('role','alert');msg.textContent='Elige el origen y el destino de la lista de sugerencias.';msg.hidden=false;return}
   const useVia=!!S.via;
   const base=`/api/ruta?o=${S.from.id}&d=${S.to.id}&v=${$('vclass').value}`+(useVia?`&p=${S.via.id}&pn=${encodeURIComponent(S.via.nombre)}`:'');
   const jobs=useVia?[['cuota',0],['libre',0],['cuota',1],['libre',1]]:[['cuota',0],['libre',0]];
-  $('calc').disabled=true;$('calc').textContent='Calculando…';msg.className='msg';msg.hidden=false;
+  $('calc').disabled=true;$('calc').setAttribute('aria-busy','true');$('calc').textContent='Calculando…';msg.className='msg';msg.setAttribute('role','status');msg.hidden=false;
   S.routes=[];S.sel=0;$('cards').innerHTML='';$('detail').innerHTML='';
   const seen=new Set();let fails=0,lastErr='',done=0;
   const run=async([t,via])=>{
@@ -487,13 +525,13 @@ $('calc').addEventListener('click',async()=>{
   const worker=async()=>{while(queue.length){await run(queue.shift());done++;msg.textContent=`Consultando rutas y casetas en el INEGI (${done} de ${jobs.length})…`}};
   msg.textContent=`Consultando rutas y casetas en el INEGI (0 de ${jobs.length})…`;
   await Promise.all([worker(),worker()]);
-  if(!S.routes.length){msg.className='msg err';msg.textContent=lastErr||'El INEGI no encontró una ruta entre esos lugares.'}
+  if(!S.routes.length){msg.className='msg err';msg.setAttribute('role','alert');msg.textContent=lastErr||'El INEGI no encontró una ruta entre esos lugares.'}
   else if(fails){msg.className='msg';msg.textContent=`Se calcularon ${S.routes.length} ruta${S.routes.length===1?'':'s'}; ${fails} no respondió. Puedes intentar de nuevo.`}
   else msg.hidden=true;
-  $('calc').disabled=false;$('calc').textContent='Calcular rutas';
+  $('calc').disabled=false;$('calc').removeAttribute('aria-busy');$('calc').textContent='Calcular rutas';
 });
 $('cards').addEventListener('click',e=>{const b=e.target.closest('[data-pick]');if(!b)return;selectRoute(+b.dataset.pick)});
-$('extrasOn').addEventListener('change',()=>{const on=$('extrasOn').checked;$('extrasFields').style.opacity=on?1:.45;$('extrasFields').querySelectorAll('input').forEach(i=>i.disabled=!on);recalc()});
+$('extrasOn').addEventListener('change',()=>{const on=$('extrasOn').checked;$('extrasFields').style.opacity=on?1:.45;$('extrasFields').querySelectorAll('input').forEach(i=>i.disabled=!on);$('extrasFields').setAttribute('aria-disabled',String(!on));recalc()});
 document.querySelectorAll('#pax,#families,#round,#buffer,#meal,#meals,#snacks,#hotel,#other').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',recalc));
 
 function calc(r){
@@ -517,22 +555,22 @@ function recalc(){
   const fast=S.routes.length>1?S.routes.reduce((a,r,i)=>r.minutos<S.routes[a].minutos?i:a,0):-1;
   $('cards').innerHTML=S.routes.map((r,i)=>`<button type="button" class="rcard" data-pick="${i}" aria-pressed="${i===S.sel}">
     <span class="name">${esc(r.nombre)}</span><span class="meta">Casetas${cs[i].mult>1?' (ida y vuelta)':''}</span><span class="tot num">${money.format(cs[i].tolls)}</span>
-    <span class="meta num">${Math.round(r.km)} km · ${hm(r.minutos/60)} · ${r.casetas.length} caseta${r.casetas.length===1?'':'s'}</span>
+    <span class="meta num">${Math.round(r.km)} km en ${hm(r.minutos/60)}<br>${r.casetas.length} caseta${r.casetas.length===1?'':'s'}</span>
     <span class="meta num">Gasolina aprox.: ${money.format(cs[i].fuel)}</span><span class="tags">${i===cheap?'<span class="pill cheap">Más barata en total</span>':''}${i===fast?'<span class="pill fast">Más rápida</span>':''}</span></button>`).join('');
   const r=S.routes[S.sel],c=cs[S.sel];
-  $('detail').innerHTML=r.casetas.length?`<h3 style="font-size:1rem;margin-bottom:6px">Casetas de “${esc(r.nombre)}” (solo ida)</h3><table class="tl num">${r.casetas.map(k=>`<tr><td>${esc(k.nombre)}</td><td>${money.format(k.costo)}</td></tr>`).join('')}<tr><td><b>Total por trayecto</b></td><td>${money.format(r.totalCasetas)}</td></tr>${c.mult>1?`<tr><td><b>Ida y vuelta</b></td><td>${money.format(c.tolls)}</td></tr>`:''}</table>`:'<p class="hint">Esta ruta no tiene casetas.</p>';
+  $('detail').innerHTML=r.casetas.length?`<table class="tl num"><caption>Casetas de “${esc(r.nombre)}”, solo ida</caption>${r.casetas.map(k=>`<tr><th scope="row">${esc(k.nombre)}</th><td>${money.format(k.costo)}</td></tr>`).join('')}<tr class="tot"><th scope="row">Total por trayecto</th><td>${money.format(r.totalCasetas)}</td></tr>${c.mult>1?`<tr class="tot"><th scope="row">Ida y vuelta</th><td>${money.format(c.tolls)}</td></tr>`:''}</table>`:'<p class="hint">Esta ruta no tiene casetas.</p>';
   const fuelName=FUELS[$('fuel').value][0];
   $('fuelSec').hidden=false;
   const pxN=Math.max(1,n($('pax').value)),mlN=n($('meals').value),mpp=n($('meal').value);
   if(!$('extrasOn').checked){$('extraBox').innerHTML='<p class="hint">Los gastos extra están desactivados: no se suman al total. Tus datos se conservan.</p>'}else
-  $('extraBox').innerHTML=`<table class="tl num">
+  $('extraBox').innerHTML=`<table class="tl num"><caption>Desglose de gastos extra</caption>
     <tr><td>Comidas<br><span class="hint">${money.format(mpp)} × ${pxN} persona${pxN===1?'':'s'} × ${mlN} comida${mlN===1?'':'s'}</span></td><td>${money.format(c.meals)}</td></tr>
     <tr><td>Botanas y bebidas</td><td>${money.format(n($('snacks').value))}</td></tr>
     <tr><td>Hotel</td><td>${money.format(n($('hotel').value))}</td></tr>
     <tr><td>Otros</td><td>${money.format(n($('other').value))}</td></tr>
-    <tr><td><b>Total de gastos extra</b></td><td>${money.format(c.extras)}</td></tr></table>`;
+    <tr class="tot"><td>Total de gastos extra</td><td>${money.format(c.extras)}</td></tr></table>`;
   const vname=S.veh?`${S.veh.marca} ${S.veh.modelo}, ${S.veh.version}`:'Vehículo genérico';
-  $('fuelBox').innerHTML=`<table class="tl num">
+  $('fuelBox').innerHTML=`<table class="tl num"><caption>Cálculo de gasolina</caption>
     <tr><td>Ruta</td><td>${esc(r.nombre)}</td></tr>
     <tr><td>Distancia${c.mult>1?' (ida y vuelta)':''}</td><td>${Math.round(r.km*c.mult)} km</td></tr>
     <tr><td>Rendimiento oficial en carretera<br><span class="hint">${esc(vname)}</span></td><td>${(S.kml||0).toFixed(1)} km/L</td></tr>
@@ -540,15 +578,16 @@ function recalc(){
     ${$('buffer').checked?'<tr><td>Margen por aire acondicionado, subidas y auto lleno</td><td>+10%</td></tr>':''}
     <tr><td>Litros necesarios</td><td>${c.liters.toFixed(1)} L de ${fuelName}</td></tr>
     <tr><td>Precio por litro</td><td>$${n($('fprice').value).toFixed(2)}</td></tr>
-    <tr><td><b>Total de gasolina</b></td><td>${money.format(c.fuel)}</td></tr></table>`;
-  $('sumRoute').textContent=`${r.nombre} · ${$('round').checked?'ida y vuelta':'solo ida'}`;
-  $('sumTotal').textContent=money.format(c.total);
-  $('sumSplit').textContent=n($('families').value)>1?`${money.format(c.perFam)} por familia · ${money.format(c.perPax)} por persona`:`${money.format(c.perPax)} por persona`;
+    <tr class="tot"><td>Total de gasolina</td><td>${money.format(c.fuel)}</td></tr></table>`;
+  $('sumRoute').textContent=`${r.nombre}, ${$('round').checked?'ida y vuelta':'solo ida'}`;
+  $('sumTotal').textContent=money.format(c.total);$('sumTotal').hidden=false;$('sumEmpty').hidden=true;$('sumBody').hidden=false;
+  $('mbar').hidden=false;document.body.classList.add('has-total');$('mbarTotal').textContent=money.format(c.total);$('mbarRoute').textContent='Total del viaje, '+($('round').checked?'ida y vuelta':'solo ida');
+  $('sumSplit').textContent=n($('families').value)>1?`${money.format(c.perFam)} por familia, ${money.format(c.perPax)} por persona`:`${money.format(c.perPax)} por persona`;
   const t=c.total||1;$('bToll').style.width=c.tolls/t*100+'%';$('bFuel').style.width=c.fuel/t*100+'%';$('bExtra').style.width=c.extras/t*100+'%';
-  $('lines').innerHTML=`<li><span><i class="dot c-toll"></i>Casetas</span><span>${money.format(c.tolls)}</span></li>
-    <li><span><i class="dot c-fuel"></i>Gasolina</span><span>${money.format(c.fuel)}</span></li>
-    <li class="muted"><span style="padding-left:18px">${c.liters.toFixed(0)} L de ${fuelName} · ${Math.round(r.km*c.mult)} km</span><span></span></li>
-    <li><span><i class="dot c-extra"></i>Comidas y extras</span><span>${money.format(c.extras)}</span></li>
+  $('lines').innerHTML=`<li><span><i class="dot c-toll" aria-hidden="true"></i>Casetas</span><span>${money.format(c.tolls)}</span></li>
+    <li><span><i class="dot c-fuel" aria-hidden="true"></i>Gasolina</span><span>${money.format(c.fuel)}</span></li>
+    <li class="muted"><span style="padding-left:18px">${c.liters.toFixed(0)} L de ${fuelName} para ${Math.round(r.km*c.mult)} km</span><span></span></li>
+    <li><span><i class="dot c-extra" aria-hidden="true"></i>Comidas y extras</span><span>${money.format(c.extras)}</span></li>
     <li class="total"><span>Total</span><span>${money.format(c.total)}</span></li>`;
   $('tagCall').hidden=c.tolls<=0;$('tagCall').innerHTML=`Carga al menos <b>${money.format(c.tolls)}</b> en tu TAG antes de salir.`;
   $('stopsCall').hidden=false;$('stopsCall').innerHTML=`<b>${hm(c.hours)}</b> de manejo por trayecto. Con niños, planea <b>${c.stops}</b> parada${c.stops===1?'':'s'}.`;
